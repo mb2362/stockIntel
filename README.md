@@ -99,7 +99,8 @@ Root component. Configures the router and wraps the app in any global providers 
 Vite entry point. Mounts `<App />` into `#root` in `index.html`.
 
 ---
-
+![alt text](src\assets\screencapture-localhost-3001-2026-02-19-18_37_22.png)
+---
 ## 🤝 Contributing
 
 Team members should follow this Git workflow:
