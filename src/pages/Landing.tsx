@@ -265,7 +265,7 @@ export default function Landing() {
                         <Button
                             size="lg"
                             onClick={() => navigate('/dashboard')}
-                            className="bg-white text-primary-600 hover:bg-gray-100 text-lg px-8 py-4"
+                            className="text-primary-600 hover:bg-gray-100 text-lg px-8 py-4"
                         >
                             Launch Dashboard
                         </Button>
