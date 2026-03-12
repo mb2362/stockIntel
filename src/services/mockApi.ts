@@ -251,6 +251,50 @@ class MockApiService {
         });
     }
 
+    // Get top gainers
+    async getTopGainers(): Promise<TrendingStock[]> {
+        await this.delay();
+        // Simulate high gainers
+        return ['NVDA', 'TSLA', 'META', 'AMZN', 'NFLX'].map(symbol => {
+            const basePrice = this.basePrice.get(symbol) || 100;
+            const price = basePrice * (1.05 + Math.random() * 0.05); // 5-10% gain
+            return {
+                symbol,
+                name: this.getCompanyName(symbol),
+                price,
+                changePercent: ((price - basePrice) / basePrice) * 100,
+                volume: Math.floor(Math.random() * 50000000) + 10000000,
+                sparkline: Array.from({ length: 7 }, () => basePrice * (1 + Math.random() * 0.1))
+            };
+        });
+    }
+
+    // Get top losers
+    async getTopLosers(): Promise<TrendingStock[]> {
+        await this.delay();
+        // Simulate high losers
+        return ['JPM', 'V', 'WMT', 'BA', 'DIS'].map(symbol => {
+            const basePrice = this.basePrice.get(symbol) || 100;
+            const price = basePrice * (0.90 + Math.random() * 0.05); // 5-10% loss
+            return {
+                symbol,
+                name: this.getCompanyName(symbol),
+                price,
+                changePercent: ((price - basePrice) / basePrice) * 100,
+                volume: Math.floor(Math.random() * 50000000) + 10000000,
+                sparkline: Array.from({ length: 7 }, () => basePrice * (0.9 + Math.random() * 0.1))
+            };
+        });
+    }
+
+    // Get all stocks
+    async getAllStocks(): Promise<StockQuote[]> {
+        await this.delay();
+
+        const allSymbols = [...POPULAR_STOCKS, 'NFLX', 'DIS', 'BA', 'GE', 'F', 'GM', 'T', 'VZ'];
+        return Promise.all(allSymbols.map(symbol => this.getStockQuote(symbol)));
+    }
+
     // Compare stocks
     async compareStocks(symbols: string[]): Promise<ComparisonData> {
         await this.delay();

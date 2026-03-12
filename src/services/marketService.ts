@@ -24,6 +24,24 @@ export const marketService = {
         return response.data;
     },
 
+    // Get top gainers
+    async getTopGainers(): Promise<TrendingStock[]> {
+        if (USE_MOCK_API) {
+            return mockApi.getTopGainers();
+        }
+        const response = await api.get('/market/gainers');
+        return response.data;
+    },
+
+    // Get top losers
+    async getTopLosers(): Promise<TrendingStock[]> {
+        if (USE_MOCK_API) {
+            return mockApi.getTopLosers();
+        }
+        const response = await api.get('/market/losers');
+        return response.data;
+    },
+
     // Compare stocks
     async compareStocks(symbols: string[]): Promise<ComparisonData> {
         if (USE_MOCK_API) {

@@ -69,3 +69,57 @@ export function useTrendingStocks(): UseMarketDataResult<TrendingStock[]> {
 
     return { data, loading, error, refetch: fetchData };
 }
+
+// Hook for fetching top gainers
+export function useTopGainers(): UseMarketDataResult<TrendingStock[]> {
+    const [data, setData] = useState<TrendingStock[] | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<ApiError | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const gainers = await marketService.getTopGainers();
+            setData(gainers);
+        } catch (err) {
+            setError(err as ApiError);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    return { data, loading, error, refetch: fetchData };
+}
+
+// Hook for fetching top losers
+export function useTopLosers(): UseMarketDataResult<TrendingStock[]> {
+    const [data, setData] = useState<TrendingStock[] | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<ApiError | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const losers = await marketService.getTopLosers();
+            setData(losers);
+        } catch (err) {
+            setError(err as ApiError);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    return { data, loading, error, refetch: fetchData };
+}

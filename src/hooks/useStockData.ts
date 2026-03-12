@@ -157,3 +157,30 @@ export function useStockNews(symbol: string | null): UseStockDataResult<NewsArti
 
     return { data, loading, error, refetch: fetchData };
 }
+
+// Hook for fetching all stocks
+export function useAllStocks(): UseStockDataResult<StockQuote[]> {
+    const [data, setData] = useState<StockQuote[] | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<ApiError | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const stocks = await stockService.getAllStocks();
+            setData(stocks);
+        } catch (err) {
+            setError(err as ApiError);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    return { data, loading, error, refetch: fetchData };
+}

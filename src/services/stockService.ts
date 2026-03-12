@@ -67,4 +67,13 @@ export const stockService = {
         const response = await api.get(`/stocks/${symbol}/news`);
         return response.data;
     },
+
+    // Get all stocks
+    async getAllStocks(): Promise<StockQuote[]> {
+        if (USE_MOCK_API) {
+            return mockApi.getAllStocks();
+        }
+        const response = await api.get(`/stocks`);
+        return response.data;
+    },
 };

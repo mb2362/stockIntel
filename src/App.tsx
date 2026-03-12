@@ -11,6 +11,7 @@ const StockDetails = React.lazy(() => import('./pages/StockDetails'));
 const Watchlist = React.lazy(() => import('./pages/Watchlist'));
 const Comparison = React.lazy(() => import('./pages/Comparison'));
 const Analytics = React.lazy(() => import('./pages/Analytics'));
+const StockList = React.lazy(() => import('./pages/StockList'));
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
               <Route path="/app" element={<MainLayout />}>
                 <Route index element={<Navigate to="/app/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="stocks" element={<StockList />} />
                 <Route path="stock/:symbol" element={<StockDetails />} />
                 <Route path="watchlist" element={<Watchlist />} />
                 <Route path="comparison" element={<Comparison />} />
