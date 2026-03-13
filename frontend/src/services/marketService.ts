@@ -3,7 +3,7 @@ import { mockApi } from './mockApi';
 import type { MarketOverview, TrendingStock } from '../types/market';
 import type { ComparisonData } from '../types/api';
 
-const USE_MOCK_API = true;
+const USE_MOCK_API = false;
 
 export const marketService = {
     // Get market overview

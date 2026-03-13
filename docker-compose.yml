@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16
+    container_name: stock_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stockmarket
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stockmarket"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    container_name: stock_api
+    env_file:
+      - ./backend/docker/.env.docker
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: stock_web
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      - VITE_USE_MOCK_API=false
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

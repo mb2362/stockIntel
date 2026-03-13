@@ -11,7 +11,7 @@ import type {
 import type { SearchResult } from '../types/api';
 
 // Use mock API for now (switch to real API when backend is ready)
-const USE_MOCK_API = true;
+const USE_MOCK_API = false;
 
 export const stockService = {
     // Search stocks

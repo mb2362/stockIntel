@@ -2,7 +2,7 @@ import api from './api';
 import { mockApi } from './mockApi';
 import type { WatchlistItem } from '../types/stock';
 
-const USE_MOCK_API = true;
+const USE_MOCK_API = false;
 
 export const watchlistService = {
     // Get watchlist
