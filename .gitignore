@@ -1,23 +1,72 @@
-# Python bytecode
+# ─── Dependencies ───────────────────────────────────────
+node_modules/
+/.pnp
+.pnp.js
+
+# ─── Python ─────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+*.pyd
 
-# Virtual environments
+# ─── Virtual Environment ─────────────────────────────────
 venv/
+.venv/
+env/
+ENV/
 
-# Python build artifacts
-build/
+# ─── Environment Variables ───────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Testing ─────────────────────────────────────────────
+/coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ─── Production / Build ──────────────────────────────────
+/dist
+/build
 dist/
+build/
+dist-ssr
 *.egg-info/
+.eggs/
 
-# VSCode / IDE
-.vscode/
+# ─── Logs ────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ─── Database ────────────────────────────────────────────
+*.db
+*.sqlite3
+
+# ─── Editor ──────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# OS files
+# ─── Vite ────────────────────────────────────────────────
+.vite
+*.local
+
+# ─── TypeScript ──────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── OS ──────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-
-.env
-node_modules
