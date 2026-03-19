@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { stockService } from '../services/stockService';
-import type { StockQuote, StockDetails, HistoricalDataPoint, TechnicalIndicators, NewsArticle, TimeRange } from '../types/stock';
+import type { StockQuote, StockDetails, HistoricalDataPoint, TechnicalIndicators, NewsArticle, TimeRange, PaginatedStocks } from '../types/stock';
 import type { ApiError } from '../types/api';
+import { POLLING_INTERVAL } from '../utils/constants';
 
 interface UseStockDataResult<T> {
     data: T | null;
@@ -11,15 +12,15 @@ interface UseStockDataResult<T> {
 }
 
 // Hook for fetching stock quote
-export function useStockQuote(symbol: string | null): UseStockDataResult<StockQuote> {
+export function useStockQuote(symbol: string | null, autoRefresh: boolean = false): UseStockDataResult<StockQuote> {
     const [data, setData] = useState<StockQuote | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<ApiError | null>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
         if (!symbol) return;
 
-        setLoading(true);
+        if (isInitial) setLoading(true);
         setError(null);
 
         try {
@@ -28,27 +29,32 @@ export function useStockQuote(symbol: string | null): UseStockDataResult<StockQu
         } catch (err) {
             setError(err as ApiError);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, [symbol]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchData(true);
 
-    return { data, loading, error, refetch: fetchData };
+        if (autoRefresh) {
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, autoRefresh]);
+
+    return { data, loading, error, refetch: () => fetchData(true) };
 }
 
 // Hook for fetching stock details
-export function useStockDetails(symbol: string | null): UseStockDataResult<StockDetails> {
+export function useStockDetails(symbol: string | null, autoRefresh: boolean = false): UseStockDataResult<StockDetails> {
     const [data, setData] = useState<StockDetails | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<ApiError | null>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
         if (!symbol) return;
 
-        setLoading(true);
+        if (isInitial) setLoading(true);
         setError(null);
 
         try {
@@ -57,15 +63,20 @@ export function useStockDetails(symbol: string | null): UseStockDataResult<Stock
         } catch (err) {
             setError(err as ApiError);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, [symbol]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchData(true);
 
-    return { data, loading, error, refetch: fetchData };
+        if (autoRefresh) {
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, autoRefresh]);
+
+    return { data, loading, error, refetch: () => fetchData(true) };
 }
 
 // Hook for fetching historical data
@@ -158,29 +169,77 @@ export function useStockNews(symbol: string | null): UseStockDataResult<NewsArti
     return { data, loading, error, refetch: fetchData };
 }
 
-// Hook for fetching all stocks
-export function useAllStocks(): UseStockDataResult<StockQuote[]> {
-    const [data, setData] = useState<StockQuote[] | null>(null);
+// Hook for fetching paginated stocks
+export function usePaginatedStocks(page: number, limit: number, autoRefresh: boolean = false): UseStockDataResult<PaginatedStocks> {
+    const [data, setData] = useState<PaginatedStocks | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<ApiError | null>(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
+        if (isInitial) setLoading(true);
         setError(null);
 
         try {
-            const stocks = await stockService.getAllStocks();
+            const stocks = await stockService.getPaginatedStocks(page, limit);
             setData(stocks);
         } catch (err) {
             setError(err as ApiError);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
-    }, []);
+    }, [page, limit]);
 
     useEffect(() => {
-        fetchData();
+        fetchData(true);
+
+        if (autoRefresh) {
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, autoRefresh]);
+
+    return { data, loading, error, refetch: () => fetchData(true) };
+}
+
+// Hook for detailed search
+export function useDetailedSearch(query: string, autoRefresh: boolean = false): UseStockDataResult<StockQuote[]> {
+    const [data, setData] = useState<StockQuote[] | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<ApiError | null>(null);
+
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
+        if (!query) {
+            setData(null);
+            return;
+        }
+
+        if (isInitial) setLoading(true);
+        setError(null);
+
+        try {
+            const stocks = await stockService.getDetailedSearchResults(query);
+            setData(stocks);
+        } catch (err) {
+            setError(err as ApiError);
+        } finally {
+            if (isInitial) setLoading(false);
+        }
+    }, [query]);
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            fetchData(true);
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timeoutId);
     }, [fetchData]);
 
-    return { data, loading, error, refetch: fetchData };
+    useEffect(() => {
+        if (autoRefresh && query) {
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, autoRefresh, query]);
+
+    return { data, loading, error, refetch: () => fetchData(true) };
 }

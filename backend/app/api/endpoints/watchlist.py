@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import concurrent.futures
 
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.params import Depends
@@ -26,19 +27,43 @@ def _demo_user(db: Session) -> models.User:
 
 @router.get("")
 async def get_watchlist(db: Session = Depends(database.get_db)):
-    """Frontend expects WatchlistItem[]."""
+    """Frontend expects WatchlistItem[] with live prices."""
     user = _demo_user(db)
     rows = db.query(models.Watchlist).filter(models.Watchlist.user_id == user.id).all()
 
-    out = []
+    symbols = []
+    symbol_to_name = {}
     for r in rows:
         stock = db.query(models.Stock).filter(models.Stock.id == r.stock_id).first()
-        if not stock:
-            continue
-        out.append(
-            {
-                "symbol": stock.ticker,
-                "name": stock.name or stock.ticker,
+        if stock:
+            symbols.append(stock.ticker)
+            symbol_to_name[stock.ticker] = stock.name or stock.ticker
+
+    if not symbols:
+        return []
+
+    # Fetch live prices concurrently using same robust logic as other endpoints
+    from app.api.endpoints.stocks import _build_quote_parts
+
+    def fetch_quote(sym):
+        try:
+            qp = _build_quote_parts(sym)
+            change = qp.price - qp.prev_close
+            change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
+            return {
+                "symbol": sym,
+                "name": symbol_to_name.get(sym, sym),
+                "price": qp.price,
+                "change": change,
+                "changePercent": change_pct,
+                "volume": qp.volume,
+                "marketCap": 0,
+                "addedAt": datetime.now(timezone.utc).isoformat(),
+            }
+        except Exception:
+            return {
+                "symbol": sym,
+                "name": symbol_to_name.get(sym, sym),
                 "price": 0,
                 "change": 0,
                 "changePercent": 0,
@@ -46,8 +71,11 @@ async def get_watchlist(db: Session = Depends(database.get_db)):
                 "marketCap": 0,
                 "addedAt": datetime.now(timezone.utc).isoformat(),
             }
-        )
-    return out
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(fetch_quote, symbols))
+
+    return results
 
 
 @router.post("")
@@ -75,13 +103,23 @@ async def add_to_watchlist(
         db.add(models.Watchlist(user_id=user.id, stock_id=stock.id))
         db.commit()
 
+    # Fetch live price for immediate response
+    try:
+        from app.api.endpoints.stocks import _build_quote_parts
+        qp = _build_quote_parts(symbol)
+        change = qp.price - qp.prev_close
+        change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
+        price, change_val, change_pct_val, volume = qp.price, change, change_pct, qp.volume
+    except Exception:
+        price = change_val = change_pct_val = volume = 0
+
     return {
         "symbol": symbol,
         "name": stock.name or symbol,
-        "price": 0,
-        "change": 0,
-        "changePercent": 0,
-        "volume": 0,
+        "price": price,
+        "change": change_val,
+        "changePercent": change_pct_val,
+        "volume": volume,
         "marketCap": 0,
         "addedAt": datetime.now(timezone.utc).isoformat(),
     }

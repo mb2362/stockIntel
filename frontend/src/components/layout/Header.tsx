@@ -16,7 +16,7 @@ export function Header() {
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
-                    <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary-600 dark:text-primary-400">
+                    <Link to="/app/dashboard" className="flex items-center gap-2 font-bold text-xl text-primary-600 dark:text-primary-400">
                         <TrendingUp className="w-8 h-8" />
                         <span className="hidden sm:inline">StockIntel</span>
                     </Link>
