@@ -24,7 +24,7 @@ services:
     env_file:
       - ./backend/docker/.env.docker
     ports:
-      - "8000:8000"
+      - "8001:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +41,26 @@ services:
       - "5173:5173"
     depends_on:
       - api
+
+  # ── Test service ────────────────────────────────────────────────────────────
+  # Runs the full pytest suite with coverage. No DB or network required.
+  #
+  # Usage (from project root):
+  #   docker compose run --rm test
+  #   docker compose run --rm test pytest tests/test_utils.py -v
+  #   docker compose run --rm test pytest tests/ --cov=app --cov-report=html
+  test:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.test
+    container_name: stock_test
+    environment:
+      - SECRET_KEY=test-secret-key-for-ci
+      - DATABASE_URL=sqlite:///:memory:
+    volumes:
+      # Mount source live so you don't need to rebuild on every code change
+      - ./backend:/app
+    # No depends_on: tests are fully offline – no DB or API needed
 
 volumes:
   postgres_data:
