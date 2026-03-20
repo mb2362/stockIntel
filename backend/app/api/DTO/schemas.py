@@ -1,3 +1,4 @@
+"""Pydantic request/response schemas for the StockIntel API."""
 from datetime import datetime
 from typing import Optional, List
 

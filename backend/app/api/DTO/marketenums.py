@@ -1,3 +1,4 @@
+"""Market type enumerations used in stock data schemas."""
 from enum import Enum
 
 class MarketEnum(str, Enum):

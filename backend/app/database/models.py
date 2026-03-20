@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM models for all database tables."""
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
