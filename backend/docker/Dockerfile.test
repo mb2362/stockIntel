@@ -1,0 +1,25 @@
+# Dockerfile.test – runs the pytest suite in an isolated container.
+# No database or network required: all external deps are stubbed in tests/conftest.py.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps (same as prod image, keeps layer caching efficient)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install app dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install test-only dependencies
+COPY requirements-test.txt .
+RUN pip install --no-cache-dir -r requirements-test.txt
+
+# Copy full backend source (app/ + tests/ + config files)
+COPY . .
+
+# Default: run full suite with coverage
+CMD ["pytest", "tests/", "-v", "--tb=short", "--cov=app", "--cov-report=term-missing"]
