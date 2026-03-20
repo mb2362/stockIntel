@@ -1,7 +1,7 @@
 // Application constants
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1';
 
-export const POLLING_INTERVAL = 30000; // 30 seconds
+export const POLLING_INTERVAL = 30000; // 30 seconds — balances live feel with Yahoo Finance rate limits
 
 export const TIME_RANGES = {
     '1D': { label: '1 Day', days: 1 },

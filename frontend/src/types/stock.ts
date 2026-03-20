@@ -69,3 +69,10 @@ export type TimeRange = '1D' | '1W' | '1M' | '3M' | '1Y' | '5Y';
 export interface WatchlistItem extends Stock {
     addedAt: string;
 }
+
+export interface PaginatedStocks {
+    data: StockQuote[];
+    total: number;
+    page: number;
+    pages: number;
+}

@@ -17,8 +17,8 @@ export function useMarketOverview(autoRefresh: boolean = false): UseMarketDataRe
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<ApiError | null>(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
+        if (isInitial) setLoading(true);
         setError(null);
 
         try {
@@ -27,30 +27,30 @@ export function useMarketOverview(autoRefresh: boolean = false): UseMarketDataRe
         } catch (err) {
             setError(err as ApiError);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchData();
+        fetchData(true);
 
         if (autoRefresh) {
-            const interval = setInterval(fetchData, POLLING_INTERVAL);
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
             return () => clearInterval(interval);
         }
     }, [fetchData, autoRefresh]);
 
-    return { data, loading, error, refetch: fetchData };
+    return { data, loading, error, refetch: () => fetchData(true) };
 }
 
 // Hook for fetching trending stocks
-export function useTrendingStocks(): UseMarketDataResult<TrendingStock[]> {
+export function useTrendingStocks(autoRefresh: boolean = false): UseMarketDataResult<TrendingStock[]> {
     const [data, setData] = useState<TrendingStock[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<ApiError | null>(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
+        if (isInitial) setLoading(true);
         setError(null);
 
         try {
@@ -59,25 +59,30 @@ export function useTrendingStocks(): UseMarketDataResult<TrendingStock[]> {
         } catch (err) {
             setError(err as ApiError);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchData(true);
 
-    return { data, loading, error, refetch: fetchData };
+        if (autoRefresh) {
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, autoRefresh]);
+
+    return { data, loading, error, refetch: () => fetchData(true) };
 }
 
 // Hook for fetching top gainers
-export function useTopGainers(): UseMarketDataResult<TrendingStock[]> {
+export function useTopGainers(autoRefresh: boolean = false): UseMarketDataResult<TrendingStock[]> {
     const [data, setData] = useState<TrendingStock[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<ApiError | null>(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
+        if (isInitial) setLoading(true);
         setError(null);
 
         try {
@@ -86,25 +91,30 @@ export function useTopGainers(): UseMarketDataResult<TrendingStock[]> {
         } catch (err) {
             setError(err as ApiError);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchData(true);
 
-    return { data, loading, error, refetch: fetchData };
+        if (autoRefresh) {
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, autoRefresh]);
+
+    return { data, loading, error, refetch: () => fetchData(true) };
 }
 
 // Hook for fetching top losers
-export function useTopLosers(): UseMarketDataResult<TrendingStock[]> {
+export function useTopLosers(autoRefresh: boolean = false): UseMarketDataResult<TrendingStock[]> {
     const [data, setData] = useState<TrendingStock[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<ApiError | null>(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
+    const fetchData = useCallback(async (isInitial: boolean = true) => {
+        if (isInitial) setLoading(true);
         setError(null);
 
         try {
@@ -113,13 +123,18 @@ export function useTopLosers(): UseMarketDataResult<TrendingStock[]> {
         } catch (err) {
             setError(err as ApiError);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchData(true);
 
-    return { data, loading, error, refetch: fetchData };
+        if (autoRefresh) {
+            const interval = setInterval(() => fetchData(false), POLLING_INTERVAL);
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, autoRefresh]);
+
+    return { data, loading, error, refetch: () => fetchData(true) };
 }

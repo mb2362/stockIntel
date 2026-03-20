@@ -1,18 +1,20 @@
+import { useState } from 'react';
 import { useMarketOverview, useTrendingStocks, useTopGainers, useTopLosers } from '../hooks/useMarketData';
 import { Card } from '../components/common/Card';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorMessage } from '../components/common/ErrorMessage';
 import { StockWidget } from '../components/common/StockWidget';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatPrice, formatPercentage } from '../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 
 export default function Dashboard() {
     const { data: marketData, loading: marketLoading, error: marketError, refetch: refetchMarket } = useMarketOverview(true);
-    const { data: trendingData, loading: trendingLoading, error: trendingError, refetch: refetchTrending } = useTrendingStocks();
-    const { data: gainersData, loading: gainersLoading, error: gainersError, refetch: refetchGainers } = useTopGainers();
-    const { data: losersData, loading: losersLoading, error: losersError, refetch: refetchLosers } = useTopLosers();
+    const [indicesIndex, setIndicesIndex] = useState(0);
+    const { data: trendingData, loading: trendingLoading, error: trendingError, refetch: refetchTrending } = useTrendingStocks(true);
+    const { data: gainersData, loading: gainersLoading, error: gainersError, refetch: refetchGainers } = useTopGainers(true);
+    const { data: losersData, loading: losersLoading, error: losersError, refetch: refetchLosers } = useTopLosers(true);
     const navigate = useNavigate();
 
     return (
@@ -30,8 +32,26 @@ export default function Dashboard() {
             {/* Market Overview */}
             <section>
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-4">
                         Market Indices
+                        {marketData && marketData.indices.length > 3 && (
+                            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800/50 rounded-lg p-1 border border-gray-200 dark:border-gray-700/50 hidden md:flex">
+                                <button
+                                    onClick={() => setIndicesIndex(Math.max(0, indicesIndex - 1))}
+                                    disabled={indicesIndex === 0}
+                                    className="p-1 rounded-md text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm disabled:shadow-none"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setIndicesIndex(Math.min(marketData.indices.length - 3, indicesIndex + 1))}
+                                    disabled={indicesIndex >= marketData.indices.length - 3}
+                                    className="p-1 rounded-md text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm disabled:shadow-none"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
                     </h2>
                     {marketData && (
                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -44,13 +64,13 @@ export default function Dashboard() {
                     )}
                 </div>
 
-                {marketLoading ? (
+                {marketLoading && !marketData ? (
                     <LoadingSpinner />
-                ) : marketError ? (
+                ) : marketError && !marketData ? (
                     <ErrorMessage error={marketError} onRetry={refetchMarket} />
                 ) : marketData ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {marketData.indices.map((index) => (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 overflow-x-auto snap-x flex-nowrap pb-2 md:pb-0">
+                        {marketData.indices.slice(indicesIndex, indicesIndex + 3).map((index) => (
                             <Card key={index.symbol} className="hover:shadow-xl transition-shadow">
                                 <div className="flex items-center justify-between">
                                     <div>
