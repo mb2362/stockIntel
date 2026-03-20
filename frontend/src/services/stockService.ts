@@ -7,6 +7,7 @@ import type {
     TechnicalIndicators,
     NewsArticle,
     TimeRange,
+    PaginatedStocks,
 } from '../types/stock';
 import type { SearchResult } from '../types/api';
 
@@ -20,6 +21,12 @@ export const stockService = {
             return mockApi.searchStocks(query);
         }
         const response = await api.get(`/stocks/search`, { params: { q: query } });
+        return response.data;
+    },
+
+    // Get detailed search results (returns StockQuotes)
+    async getDetailedSearchResults(query: string): Promise<StockQuote[]> {
+        const response = await api.get(`/stocks/search/detailed`, { params: { q: query } });
         return response.data;
     },
 
@@ -68,12 +75,9 @@ export const stockService = {
         return response.data;
     },
 
-    // Get all stocks
-    async getAllStocks(): Promise<StockQuote[]> {
-        if (USE_MOCK_API) {
-            return mockApi.getAllStocks();
-        }
-        const response = await api.get(`/stocks`);
+    // Get paginated stocks
+    async getPaginatedStocks(page: number = 1, limit: number = 10): Promise<PaginatedStocks> {
+        const response = await api.get(`/stocks`, { params: { page, limit } });
         return response.data;
     },
 };

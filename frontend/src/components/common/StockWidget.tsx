@@ -32,9 +32,9 @@ export function StockWidget({
                 {title}
             </h2>
 
-            {loading ? (
+            {loading && !stocks ? (
                 <LoadingSpinner />
-            ) : error ? (
+            ) : error && !stocks ? (
                 <ErrorMessage error={error} onRetry={onRetry} />
             ) : stocks ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
