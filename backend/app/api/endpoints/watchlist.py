@@ -1,3 +1,4 @@
+"""Watchlist API endpoints – get, add, remove symbols with live prices."""
 from __future__ import annotations
 
 from datetime import datetime, timezone

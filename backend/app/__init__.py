@@ -1,0 +1,1 @@
+"""StockIntel backend application package."""

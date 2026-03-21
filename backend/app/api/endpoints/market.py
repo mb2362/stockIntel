@@ -1,3 +1,4 @@
+"""Market overview, trending, gainers/losers endpoints."""
 from __future__ import annotations
 
 import concurrent.futures

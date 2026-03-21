@@ -1,3 +1,4 @@
+"""FastAPI application factory and CORS/router configuration."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRouter

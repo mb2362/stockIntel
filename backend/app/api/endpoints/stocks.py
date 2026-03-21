@@ -1,3 +1,4 @@
+"""Stocks API endpoints – quote, historical, indicators, news, compare, predict."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -656,7 +657,7 @@ async def search_stocks_detailed(q: str):
                     break
         
         results = []
-        def fetch_quote(sym):
+        def fetch_quote_detailed(sym):
             try:
                 t = _ticker(sym)
                 info = _get_info_best_effort(t)
@@ -679,7 +680,7 @@ async def search_stocks_detailed(q: str):
                 return None
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(fetch_quote, sym) for sym in symbols]
+            futures = [executor.submit(fetch_quote_detailed, sym) for sym in symbols]
             for future in concurrent.futures.as_completed(futures):
                 res = future.result()
                 if res:
@@ -691,15 +692,15 @@ async def search_stocks_detailed(q: str):
 
 
 @router.get("/{symbol}/historical")
-async def get_historical(symbol: str, range: str = "1M"):
+async def get_historical(symbol: str, time_range: str = "1M"):
     """Frontend expects: GET /stocks/{symbol}/historical?range=1M returning HistoricalDataPoint[]."""
     symbol = symbol.upper().strip()
-    range = (range or "1M").upper().strip()
-    if range not in TIME_RANGE_TO_V8:
-        raise HTTPException(status_code=400, detail=f"Invalid range: {range}")
+    time_range = (time_range or "1M").upper().strip()
+    if time_range not in TIME_RANGE_TO_V8:
+        raise HTTPException(status_code=400, detail=f"Invalid range: {time_range}")
 
     try:
-        out = _yahoo_historical(symbol, range)
+        out = _yahoo_historical(symbol, time_range)
     except Exception as e:
         raise HTTPException(
             status_code=503,

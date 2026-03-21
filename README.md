@@ -1,176 +1,165 @@
 ## Run with:
-`docker compose -f docker/docker-compose.yml up --build`
+`docker compose up --build`
 
-# Stock Market API
+# StockIntel – Stock Market API
 
-This is a backend API for a stock market
-application, built using Python and FastAPI. It
-provides endpoints for accessing stock data,
-managing user accounts, and handling watchlists
-and portfolios.
+A backend API for a stock market application built with Python and FastAPI.
+Provides endpoints for real-time stock data, user authentication, watchlists, and portfolios.
+
+---
+
+## 🧪 Testing
+
+The backend has a full pytest suite with **188 tests** and **71.8% coverage**.
+Tests run completely offline — no database or internet connection required.
+
+**Quick start:**
+```bash
+cd backend
+pip install -r requirements.txt
+pip install -r requirements-test.txt
+pytest
+```
+
+For full details — coverage reports, Docker-based testing, CI/CD setup, and troubleshooting — see **[backend/README-TESTS.md](backend/README-TESTS.md)**.
+
+### CI/CD
+Tests run automatically on every push and pull request to `main` via GitHub Actions.
+The build fails if coverage drops below 70%. See [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml).
+
+---
 
 ## Features
 
-* **Stock Data:** Retrieve real-time-ish and
-  historical stock information using `yfinance`
-  (best-effort, based on Yahoo Finance data).
-* **User Authentication:** Secure user
-  registration and login using JWT (JSON Web
-  Tokens).
-* **Watchlists:** (To be implemented) Manage user
-  watchlists for tracking favorite stocks.
-* **Portfolios:** (To be implemented) Track user
-  stock portfolios and performance.
-* **News:** (To be implemented) Fetch relevant
-  financial news.
+* **Stock Data:** Real-time and historical stock data via Yahoo Finance (`yfinance` + direct v8/v10 API).
+* **User Authentication:** JWT-based registration and login.
+* **Watchlists:** Manage tracked stocks with live prices.
+* **Portfolios:** Track stock holdings and performance.
+* **News:** Fetch stock-related news articles.
+* **Technical Indicators:** RSI, MACD, MA50, MA200.
+* **Stock Comparison:** Side-by-side comparison of multiple symbols.
+* **Pagination:** Browsable stock list with 100+ symbols.
 
-## Technologies Used
+## Technologies
 
-* **Python:** Programming language.
-* **FastAPI:** Web framework for building the API.
-* **Uvicorn:** ASGI server for running the API.
-* **SQLAlchemy:** ORM for database interactions.
-* **PostgreSQL:** Database system.
-* **Pydantic:** Data validation and serialization.
-* **python-jose:** JWT encoding and decoding.
-* **passlib:** Password hashing.
-* **yfinance:** Market data client.
-* **pandas:** Data handling for historical bars.
-* **python-dotenv:** For managing environment
-  variables.
+| Layer | Technology |
+|---|---|
+| Language | Python 3.11 |
+| Framework | FastAPI + Uvicorn |
+| Database | PostgreSQL + SQLAlchemy |
+| Validation | Pydantic v2 |
+| Auth | JWT (PyJWT) + passlib bcrypt |
+| Market data | yfinance + Yahoo Finance v8/v10 API |
+| Data handling | pandas |
+| Testing | pytest + pytest-cov |
+| Containerisation | Docker + Docker Compose |
 
 ## Prerequisites
 
-* Python 3.8+
-* PostgreSQL database
-* No paid market data API key required.
+* Python 3.11+
+* PostgreSQL (or Docker)
+* No paid API key required
 
 ## Setup
 
-1. **Clone the Repository:**
-
+1. **Clone the repository:**
    ```bash
    git clone <repository_url>
-   cd stock-market-api
+   cd stockIntel-main
    ```
 
-2. **Create a Virtual Environment:**
-
+2. **Create a virtual environment:**
    ```bash
    python3 -m venv venv
-   source venv/bin/activate  # On macOS/Linux
-   venv\Scripts\activate      # On Windows
+   source venv/bin/activate   # macOS/Linux
+   venv\Scripts\activate      # Windows
    ```
 
-3. **Install Dependencies:**
-
+3. **Install dependencies:**
    ```bash
+   cd backend
    pip install -r requirements.txt
    ```
 
-4. **Set up Environment Variables:**
-
-    * Create a `.env` file in the root directory.
-    * Add your database credentials, API key, and
-      secret key:
-
+4. **Set up environment variables** — create `backend/.env`:
    ```
    DATABASE_URL=postgresql://user:password@host/database
    SECRET_KEY=your_secret_key
    ```
 
 5. **Run the API:**
-
    ```bash
    uvicorn app.main:app --reload
    ```
 
+### Run with Docker (recommended)
+```bash
+docker compose up --build
+```
+This starts the API (port 8001), frontend (port 5173), and PostgreSQL together.
+
 ## API Endpoints
 
-### Stock Data
+### Stocks
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/stocks` | Paginated stock list |
+| GET | `/api/v1/stocks/search?q=` | Search stocks |
+| GET | `/api/v1/stocks/gainers` | Top gainers |
+| GET | `/api/v1/stocks/losers` | Top losers |
+| GET | `/api/v1/stocks/{symbol}/quote` | Live quote |
+| GET | `/api/v1/stocks/{symbol}/info` | Company details |
+| GET | `/api/v1/stocks/{symbol}/historical?range=1M` | OHLCV history |
+| GET | `/api/v1/stocks/{symbol}/indicators` | RSI, MACD, MA50, MA200 |
+| GET | `/api/v1/stocks/{symbol}/news` | News articles |
+| POST | `/api/v1/stocks/compare` | Compare symbols |
 
-* `GET /stocks/{symbol}`: Retrieve data for a
-  specific stock.
-*
-`GET /stocks/{symbol}/historical?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&multiplier=1&timespan=day`:
-Retrieve historical *daily* OHLCV bars for a stock.
-* `GET /stocks/search/{query}`: Search for stocks.
+### Market
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/market/overview` | Global indices |
+| GET | `/api/v1/market/trending` | Trending stocks |
+| GET | `/api/v1/market/gainers` | Market gainers |
+| GET | `/api/v1/market/losers` | Market losers |
 
-### User Authentication
+### Watchlist
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/watchlist` | Get watchlist |
+| POST | `/api/v1/watchlist` | Add symbol |
+| DELETE | `/api/v1/watchlist/{symbol}` | Remove symbol |
 
-* `POST /auth/token`: User login (get access
-  token).
-* `POST /auth/users/`: Create a new user (
-  register).
-* `GET /auth/users/me/`: Get the current user's
-  information (protected route).
-
-### Watchlists (To be implemented)
-
-* `GET /watchlists/`: Get user's watchlists.
-* `POST /watchlists/`: Create a new watchlist.
-* `POST /watchlists/{watchlist_id}/stocks/`: Add
-  stock to watchlist.
-*
-`DELETE /watchlists/{watchlist_id}/stocks/{symbol} `:
-Remove stock from watchlist.
-
-### Portfolios (To be implemented)
-
-* `GET /portfolios/`: Get user's portfolios.
-* `POST /portfolios/`: Create a new portfolio.
-* `POST /portfolios/{portfolio_id}/holdings/`: Add
-  stock holding to portfolio.
-*
-`PUT /portfolios/{portfolio_id}/holdings/{symbol}`:
-Update stock holding in portfolio.
-*
-`DELETE /portfolios/{portfolio_id}/holdings/{symbol}`:
-Remove stock holding from portfolio.
-
-### News (To be implemented)
-
-* `GET /news/`: Get recent financial news.
-* `GET /news/{symbol}`: Get news related to a
-  specific stock.
+### Auth
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/auth/token` | Login |
+| POST | `/api/v1/auth/users/` | Register |
+| GET | `/api/v1/auth/users/me/` | Current user |
 
 ## Database Schema
 
-* **users:** Stores user information (id,
-  username, email, hashed\_password).
-* **stocks:** Stores stock information (id,
-  ticker, name, market, etc.).
-* **historical\_stock\_data:** Stores historical
-  stock data (symbol, timestamp, open, high, low,
-  close, volume).
-* **watchlists:** (To be implemented) Stores user
-  watchlists.
-* **portfolios:** (To be implemented) Stores user
-  portfolios.
-* **news:** (To be implemented) Stores financial
-  news.
+| Table | Key columns |
+|---|---|
+| `users` | id, username, email, hashed_password |
+| `stocks` | id, ticker, name, market, active |
+| `historical_stock_data` | symbol, timestamp, open, high, low, close, volume |
+| `watchlists` | id, user_id, stock_id |
+| `portfolios` | id, user_id, stock_id, quantity, purchase_price |
+| `news` | id, stock_id, title, url, published_at |
 
 ## Authentication
 
-* The API uses JWT (JSON Web Tokens) for
-  authentication.
-* Users can register and log in to obtain an
-  access token.
-* The access token must be included in the
-  `Authorization` header of protected requests.
+JWT tokens are used for protected routes. Include the token in the `Authorization` header:
+```
+Authorization: Bearer <access_token>
+```
 
-## Error Handling
+## Notes on Market Data
 
-* The API returns appropriate HTTP status codes
-  and error messages in JSON format.
-
-## Notes about yfinance
-
-* yfinance does not expose an official, guaranteed ticker-search API.
-  This project uses `yfinance.Search` when available; otherwise the
-  `/stocks/search/{query}` endpoint returns HTTP 501.
-* Many Polygon-specific metadata fields (CIK, FIGI, etc.) may be missing;
-  the API returns them as `null`.
+* Uses Yahoo Finance v8/v10 APIs directly alongside `yfinance` for better rate-limit resilience.
+* Quote results are cached for 15 seconds to reduce upstream API pressure.
+* `yfinance.Search` is used for symbol search when available; falls back to empty list if unavailable.
+* Fields from Polygon's reference API (CIK, FIGI, etc.) are not available via yfinance and return `null`.
 
 ## Contributing
 

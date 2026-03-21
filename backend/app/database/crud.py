@@ -1,3 +1,4 @@
+"""Database CRUD helpers for Stock, HistoricalData, and User models."""
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
