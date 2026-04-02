@@ -9,6 +9,10 @@ from fastapi import APIRouter, HTTPException
 import time
 
 from app.api.endpoints.stocks import _build_quote_parts, _get_info_best_effort, _ticker, _yahoo_quote
+from app.api.utils.data_cleaner import (
+    normalise_market_index, normalise_trending_stock, normalise_quote,
+    clean_float, clean_volume, clean_market_cap, clean_symbol, clean_str,
+)
 
 router = APIRouter(prefix="/market")
 
@@ -86,13 +90,14 @@ async def get_market_overview():
     def fetch_index(idx):
         try:
             q = _quote_basic(idx["symbol"])
-            return {
+            raw = {
                 "symbol": idx["symbol"],
                 "name": idx["name"],
                 "value": q["price"],
                 "change": q["change"],
                 "changePercent": q["changePercent"],
             }
+            return normalise_market_index(raw)
         except Exception:
             return None
 
@@ -123,13 +128,14 @@ async def get_trending_stocks():
     def fetch_trending(symbol):
         try:
             q = _quote_basic(symbol)
-            return {
+            raw = {
                 "symbol": symbol,
                 "name": q["name"],
                 "price": q["price"],
                 "changePercent": q["changePercent"],
                 "volume": q["volume"],
             }
+            return normalise_trending_stock(raw)
         except Exception:
             return None
 
@@ -153,13 +159,16 @@ GAINER_LOSER_SYMBOLS = [
 def _fetch_gainer_loser(sym):
     try:
         q = _quote_basic(sym)
-        return {
+        raw = {
             "symbol": sym,
             "name": q["name"],
             "price": q["price"],
             "change": q["change"],
             "changePercent": q["changePercent"],
             "volume": q["volume"],
+        }
+        return normalise_trending_stock({**raw, "changePercent": raw["changePercent"]}) | {
+            "change": clean_float(raw["change"]),
         }
     except Exception:
         return None
