@@ -9,6 +9,8 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
 from app.database import crud, database, models
+from app.api.utils.data_cleaner import normalise_watchlist_item, clean_symbol
+from app.api.security.middleware import sanitise_symbol_param
 
 
 router = APIRouter(prefix="/watchlist")
@@ -51,7 +53,7 @@ async def get_watchlist(db: Session = Depends(database.get_db)):
             qp = _build_quote_parts(sym)
             change = qp.price - qp.prev_close
             change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
-            return {
+            raw = {
                 "symbol": sym,
                 "name": symbol_to_name.get(sym, sym),
                 "price": qp.price,
@@ -61,17 +63,15 @@ async def get_watchlist(db: Session = Depends(database.get_db)):
                 "marketCap": 0,
                 "addedAt": datetime.now(timezone.utc).isoformat(),
             }
+            return normalise_watchlist_item(raw)
         except Exception:
-            return {
+            return normalise_watchlist_item({
                 "symbol": sym,
                 "name": symbol_to_name.get(sym, sym),
-                "price": 0,
-                "change": 0,
-                "changePercent": 0,
-                "volume": 0,
-                "marketCap": 0,
+                "price": 0, "change": 0, "changePercent": 0,
+                "volume": 0, "marketCap": 0,
                 "addedAt": datetime.now(timezone.utc).isoformat(),
-            }
+            })
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(fetch_quote, symbols))
@@ -84,9 +84,11 @@ async def add_to_watchlist(
     payload: dict = Body(...), db: Session = Depends(database.get_db)
 ):
     """POST /watchlist { symbol }"""
-    symbol = (payload.get("symbol") or "").upper().strip()
-    if not symbol:
-        raise HTTPException(status_code=400, detail="symbol is required")
+    raw_symbol = (payload.get("symbol") or "").strip()
+    try:
+        symbol = sanitise_symbol_param(raw_symbol)
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Invalid symbol: '{raw_symbol}'")
 
     user = _demo_user(db)
 
@@ -127,8 +129,7 @@ async def add_to_watchlist(
 
 
 @router.delete("/{symbol}")
-async def remove_from_watchlist(symbol: str, db: Session = Depends(database.get_db)):
-    symbol = symbol.upper().strip()
+async def remove_from_watchlist(symbol: str = Depends(sanitise_symbol_param), db: Session = Depends(database.get_db)):
     user = _demo_user(db)
     stock = crud.get_stock_by_ticker(db, symbol)
     if not stock:
