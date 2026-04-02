@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Moon, Sun, TrendingUp, LayoutDashboard, Star, BarChart3, GitCompare } from 'lucide-react';
+import { Moon, Sun, TrendingUp, LayoutDashboard, Star, BarChart3, GitCompare, Sparkles } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { SearchBar } from '../common/SearchBar';
 
@@ -62,14 +62,14 @@ export function Header() {
                         </Link>
 
                         <Link
-                            to="/app/comparison"
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isActive('/app/comparison')
+                            to="/app/predict"
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isActive('/app/predict')
                                 ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
                                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                                 }`}
                         >
-                            <GitCompare className="w-5 h-5" />
-                            <span className="hidden sm:inline">Compare</span>
+                            <Sparkles className="w-5 h-5" />
+                            <span className="hidden sm:inline">Predict</span>
                         </Link>
 
                         <Link
