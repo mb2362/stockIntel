@@ -15,6 +15,13 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 import time
 from app.database import crud, database, models
+from app.api.utils.data_cleaner import (
+    normalise_quote, normalise_stock_detail, normalise_historical,
+    normalise_indicators, normalise_news_article, normalise_search_result,
+    normalise_watchlist_item, normalise_trending_stock,
+    clean_symbol, clean_str, clean_market_cap, clean_volume,
+)
+from app.api.security.middleware import sanitise_symbol_param
 
 logger = logging.getLogger(__name__)
 
@@ -373,18 +380,16 @@ async def search_stocks(q: str):
         quotes = getattr(s, "quotes", None) or []
         out = []
         for item in quotes:
-            sym = (item.get("symbol") or "").upper()
-            if not sym:
-                continue
-            out.append(
-                {
-                    "symbol": sym,
-                    "name": item.get("shortname") or item.get("longname") or item.get("name") or sym,
-                    "type": item.get("quoteType") or item.get("typeDisp") or "EQUITY",
-                    "region": item.get("region") or item.get("exchange") or "US",
-                    "currency": item.get("currency") or "USD",
-                }
-            )
+            raw = {
+                "symbol": item.get("symbol"),
+                "name": item.get("shortname") or item.get("longname") or item.get("name"),
+                "type": item.get("quoteType") or item.get("typeDisp") or "EQUITY",
+                "region": item.get("region") or item.get("exchange") or "US",
+                "currency": item.get("currency") or "USD",
+            }
+            cleaned = normalise_search_result(raw)
+            if cleaned:
+                out.append(cleaned)
         return out
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {e}")
@@ -402,25 +407,19 @@ async def get_top_gainers():
     for sym in symbols:
         try:
             qp = _build_quote_parts(sym)
-
             change = qp.price - qp.prev_close
             change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
 
             if change_pct > 0:
-                results.append({
-                    "symbol": sym,
-                    "name": sym,
-                    "price": qp.price,
-                    "change": change,
-                    "changePercent": change_pct,
-                    "volume": qp.volume
-                })
-
+                raw = {
+                    "symbol": sym, "name": sym, "price": qp.price,
+                    "change": change, "changePercent": change_pct, "volume": qp.volume
+                }
+                results.append(normalise_quote(raw, sym))
         except Exception:
             continue
 
     results.sort(key=lambda x: x["changePercent"], reverse=True)
-
     return results[:5]
 
 
@@ -436,32 +435,25 @@ async def get_top_losers():
     for sym in symbols:
         try:
             qp = _build_quote_parts(sym)
-
             change = qp.price - qp.prev_close
             change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
 
             if change_pct < 0:
-                results.append({
-                    "symbol": sym,
-                    "name": sym,
-                    "price": qp.price,
-                    "change": change,
-                    "changePercent": change_pct,
-                    "volume": qp.volume
-                })
-
+                raw = {
+                    "symbol": sym, "name": sym, "price": qp.price,
+                    "change": change, "changePercent": change_pct, "volume": qp.volume
+                }
+                results.append(normalise_quote(raw, sym))
         except Exception:
             continue
 
     results.sort(key=lambda x: x["changePercent"])
-
     return results[:5]
 
 
 @router.get("/{symbol}/quote")
-async def get_stock_quote(symbol: str):
+async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
     """Frontend expects StockQuote."""
-    symbol = symbol.upper().strip()
 
     # Use v8 chart meta for company info (no yfinance crumb session required)
     try:
@@ -473,7 +465,7 @@ async def get_stock_quote(symbol: str):
     change = qp.price - qp.prev_close
     change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
 
-    return {
+    raw = {
         "symbol": symbol,
         "name": meta.get("shortName") or meta.get("symbol") or symbol,
         "price": qp.price,
@@ -493,12 +485,12 @@ async def get_stock_quote(symbol: str):
         "dividendYield": meta.get("dividendYield"),
         "beta": meta.get("beta"),
     }
+    return normalise_quote(raw, symbol)
 
 
 @router.get("/{symbol}/info")
-async def get_stock_info(symbol: str):
+async def get_stock_info(symbol: str = Depends(sanitise_symbol_param)):
     """Frontend expects StockDetails."""
-    symbol = symbol.upper().strip()
 
     # Use v8 chart meta for price + basic info
     try:
@@ -541,7 +533,7 @@ async def get_stock_info(symbol: str):
             return v.get("raw") or v.get("fmt")
         return v
 
-    return {
+    raw = {
         "symbol": symbol,
         "name": name,
         "price": qp.price,
@@ -567,6 +559,7 @@ async def get_stock_info(symbol: str):
         "founded": None,
         "website": summary.get("website"),
     }
+    return normalise_stock_detail(raw, symbol)
 
 
 @router.get("")
@@ -598,19 +591,12 @@ async def get_all_stocks(page: int = 1, limit: int = 10):
             qp = _build_quote_parts(sym)
             change = qp.price - qp.prev_close
             change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
-            
-            # optionally query info for name if we want, or proxy the symbol for now
-            return {
-                "symbol": sym,
-                "name": sym,
-                "price": qp.price,
-                "change": change,
-                "changePercent": change_pct,
-                "volume": qp.volume,
-                "marketCap": 0,
-                "sector": None,
-                "industry": None,
+            raw = {
+                "symbol": sym, "name": sym,
+                "price": qp.price, "change": change, "changePercent": change_pct,
+                "volume": qp.volume, "marketCap": 0, "sector": None, "industry": None,
             }
+            return normalise_quote(raw, sym)
         except Exception as e:
             logger.warning(f"Failed to load stock {sym}: {e}")
             return None
@@ -664,17 +650,14 @@ async def search_stocks_detailed(q: str):
                 qp = _build_quote_parts(sym)
                 change = qp.price - qp.prev_close
                 change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
-                return {
+                raw = {
                     "symbol": sym,
                     "name": info.get("shortName") or info.get("longName") or sym,
-                    "price": qp.price,
-                    "change": change,
-                    "changePercent": change_pct,
-                    "volume": qp.volume,
-                    "marketCap": _safe_float(info.get("marketCap"), 0.0),
-                    "sector": info.get("sector"),
-                    "industry": info.get("industry"),
+                    "price": qp.price, "change": change, "changePercent": change_pct,
+                    "volume": qp.volume, "marketCap": _safe_float(info.get("marketCap"), 0.0),
+                    "sector": info.get("sector"), "industry": info.get("industry"),
                 }
+                return normalise_quote(raw, sym)
             except Exception as e:
                 logger.warning(f"Failed to load stock {sym} for search: {e}")
                 return None
@@ -692,9 +675,8 @@ async def search_stocks_detailed(q: str):
 
 
 @router.get("/{symbol}/historical")
-async def get_historical(symbol: str, time_range: str = "1M"):
+async def get_historical(symbol: str = Depends(sanitise_symbol_param), time_range: str = "1M"):
     """Frontend expects: GET /stocks/{symbol}/historical?range=1M returning HistoricalDataPoint[]."""
-    symbol = symbol.upper().strip()
     time_range = (time_range or "1M").upper().strip()
     if time_range not in TIME_RANGE_TO_V8:
         raise HTTPException(status_code=400, detail=f"Invalid range: {time_range}")
@@ -713,13 +695,12 @@ async def get_historical(symbol: str, time_range: str = "1M"):
             detail="Yahoo Finance returned empty historical data. Try again later.",
         )
 
-    return out
+    return normalise_historical(out)
 
 
 @router.get("/{symbol}/indicators")
-async def get_indicators(symbol: str):
+async def get_indicators(symbol: str = Depends(sanitise_symbol_param)):
     """Frontend expects TechnicalIndicators."""
-    symbol = symbol.upper().strip()
 
     try:
         bars = _yahoo_historical(symbol, "1Y")
@@ -741,47 +722,45 @@ async def get_indicators(symbol: str):
     rsi   = _compute_rsi(close)
     macd  = _compute_macd(close)
 
-    return {
+    raw_indicators = {
         "symbol": symbol,
         "ma50":  _safe_float(ma50,  0.0),
         "ma200": _safe_float(ma200, 0.0),
         "rsi":   rsi,
         "macd":  macd,
     }
+    return normalise_indicators(raw_indicators, symbol)
 
 
 @router.get("/{symbol}/news")
-async def get_stock_news(symbol: str):
+async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
     """Frontend expects NewsArticle[].
 
     For MVP, we use yfinance's Ticker.news when available. Later you can swap this
     to Twitter/X, NewsAPI, AlphaVantage news, etc.
     """
-    symbol = symbol.upper().strip()
     t = _ticker(symbol)
     items = getattr(t, "news", None) or []
 
     out: List[Dict[str, Any]] = []
     for item in items[:20]:
-        # yfinance news items are dicts with keys like: title, publisher, link, providerPublishTime
         ts = item.get("providerPublishTime")
         published = (
             datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat() if ts else datetime.now(timezone.utc).isoformat()
         )
-        out.append(
-            {
-                "id": str(item.get("uuid") or item.get("id") or item.get("link") or len(out)),
-                "title": item.get("title") or "",
-                "source": item.get("publisher") or "Yahoo Finance",
-                "url": item.get("link") or "",
-                "publishedAt": published,
-                "summary": item.get("summary"),
-                "imageUrl": (item.get("thumbnail", {}) or {}).get("resolutions", [{}])[-1].get("url")
-                if isinstance(item.get("thumbnail"), dict)
-                else None,
-                "sentiment": "neutral",
-            }
-        )
+        raw_article = {
+            "id": str(item.get("uuid") or item.get("id") or item.get("link") or len(out)),
+            "title": item.get("title") or "",
+            "source": item.get("publisher") or "Yahoo Finance",
+            "url": item.get("link") or "",
+            "publishedAt": published,
+            "summary": item.get("summary"),
+            "imageUrl": (item.get("thumbnail", {}) or {}).get("resolutions", [{}])[-1].get("url")
+            if isinstance(item.get("thumbnail"), dict)
+            else None,
+            "sentiment": "neutral",
+        }
+        out.append(normalise_news_article(raw_article, len(out)))
     return out
 
 
@@ -791,19 +770,29 @@ async def compare_stocks(payload: dict = Body(...)):
 
     POST /stocks/compare { symbols: string[] }
     """
+    from app.api.utils.data_cleaner import clean_symbol as _clean_sym, clean_float as _cf, clean_price as _cp, clean_volume as _cv
     symbols = payload.get("symbols")
     if not isinstance(symbols, list) or not symbols:
         raise HTTPException(status_code=400, detail="symbols must be a non-empty array")
 
-    symbols = [str(s).upper().strip() for s in symbols if str(s).strip()]
+    # Sanitise and deduplicate symbols; reject obviously invalid ones
+    cleaned_symbols: List[str] = []
+    for s in symbols[:10]:  # hard cap at 10
+        sym = _clean_sym(str(s))
+        if sym and sym not in cleaned_symbols:
+            cleaned_symbols.append(sym)
+
+    if not cleaned_symbols:
+        raise HTTPException(status_code=400, detail="No valid symbols provided")
+
     data: Dict[str, Any] = {}
 
-    for sym in symbols:
+    for sym in cleaned_symbols:
         t = _ticker(sym)
         info = _get_info_best_effort(t)
         qp = _build_quote_parts(sym)
-        change = qp.price - qp.prev_close
-        change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
+        change = _cf(qp.price - qp.prev_close)
+        change_pct = _cf((change / qp.prev_close * 100.0) if qp.prev_close else 0.0)
 
         hist = t.history(period="1mo", interval="1d", auto_adjust=True)
         historical = []
@@ -811,20 +800,22 @@ async def compare_stocks(payload: dict = Body(...)):
             hist = hist.reset_index()
             for _, row in hist.iterrows():
                 dt = pd.to_datetime(row["Date"]).date().isoformat() if "Date" in hist.columns else ""
-                historical.append({"date": dt, "close": _safe_float(row.get("Close"))})
+                close_val = _cp(row.get("Close"))
+                if dt and close_val > 0:
+                    historical.append({"date": dt, "close": close_val})
 
         data[sym] = {
-            "name": info.get("shortName") or info.get("longName") or sym,
-            "price": qp.price,
+            "name": clean_str(info.get("shortName") or info.get("longName") or sym, sym, 256),
+            "price": _cp(qp.price),
             "change": change,
             "changePercent": change_pct,
-            "marketCap": _safe_float(info.get("marketCap"), 0.0),
-            "peRatio": info.get("trailingPE") or info.get("forwardPE"),
-            "volume": qp.volume,
+            "marketCap": clean_market_cap(info.get("marketCap")),
+            "peRatio": _cf(info.get("trailingPE") or info.get("forwardPE"), None) if (info.get("trailingPE") or info.get("forwardPE")) else None,
+            "volume": _cv(qp.volume),
             "historical": historical,
         }
 
-    return {"symbols": symbols, "data": data}
+    return {"symbols": cleaned_symbols, "data": data}
 
 
 # -----------------------------
@@ -833,7 +824,7 @@ async def compare_stocks(payload: dict = Body(...)):
 
 
 @router.get("/{symbol}/predict")
-async def predict_future_price(symbol: str, horizon_days: int = 7):
+async def predict_future_price(symbol: str = Depends(sanitise_symbol_param), horizon_days: int = 7):
     """Optional endpoint for later ML integration.
 
     You can replace the dummy logic with:
@@ -841,13 +832,12 @@ async def predict_future_price(symbol: str, horizon_days: int = 7):
     - a separate ML microservice
     - or a queue job (Celery) that stores predictions.
     """
-    symbol = symbol.upper().strip()
+    from app.api.utils.data_cleaner import clean_price as _cp, clean_int as _ci
     qp = _build_quote_parts(symbol)
-    # Dummy baseline: predict flat price.
     return {
         "symbol": symbol,
-        "horizonDays": horizon_days,
+        "horizonDays": _ci(horizon_days, default=7, min_val=1, max_val=365),
         "asOf": datetime.now(timezone.utc).isoformat(),
-        "predictedPrice": qp.price,
+        "predictedPrice": _cp(qp.price),
         "model": "stub_baseline",
     }
