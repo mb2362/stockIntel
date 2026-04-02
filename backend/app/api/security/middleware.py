@@ -27,8 +27,9 @@ import time
 from collections import defaultdict, deque
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from starlette.requests import Request
+from starlette import status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
