@@ -3,9 +3,9 @@ services:
     image: postgres:16
     container_name: stock_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: stockmarket
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=stockmarket
     ports:
       - "5432:5432"
     volumes:
@@ -35,14 +35,14 @@ services:
       dockerfile: Dockerfile
     container_name: stock_web
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      - VITE_API_BASE_URL=http://localhost:8001/api/v1
       - VITE_USE_MOCK_API=false
     ports:
       - "5173:5173"
     depends_on:
       - api
 
-  # ── Test service ────────────────────────────────────────────────────────────
+  # Test service
   # Runs the full pytest suite with coverage. No DB or network required.
   #
   # Usage (from project root):
@@ -56,11 +56,9 @@ services:
     container_name: stock_test
     environment:
       - SECRET_KEY=test-secret-key-for-ci
-      - DATABASE_URL=sqlite:///:memory:
+      - DATABASE_URL="sqlite:///:memory"
     volumes:
-      # Mount source live so you don't need to rebuild on every code change
       - ./backend:/app
-    # No depends_on: tests are fully offline – no DB or API needed
 
 volumes:
   postgres_data:
