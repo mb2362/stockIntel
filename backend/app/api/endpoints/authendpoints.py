@@ -1,17 +1,18 @@
 """Authentication endpoints – login, register, current user."""
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import database, crud, models
 from ..DTO import schemas
-from ..DTO.schemas import UserCreate, Token
+from ..DTO.schemas import Token
 from ..auth import authhelper
 
 router = APIRouter()
 
 
-@router.post("/token", response_model=Token)
+@router.post("/token")
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(database.get_db),
@@ -30,8 +31,8 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.post("/users/", response_model=schemas.User)
-async def create_user(user: UserCreate, db: Session = Depends(database.get_db)):
+@router.post("/users/")
+async def create_user(user: Any, db: Session = Depends(database.get_db)):
     db_user = crud.get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -40,7 +41,7 @@ async def create_user(user: UserCreate, db: Session = Depends(database.get_db)):
     return db_user
 
 
-@router.get("/users/me/", response_model=schemas.User)
+@router.get("/users/me/")
 async def read_users_me(
     current_user: models.User = Depends(authhelper.get_current_user),
 ):
