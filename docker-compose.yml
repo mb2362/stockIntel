@@ -42,13 +42,6 @@ services:
     depends_on:
       - api
 
-  # Test service
-  # Runs the full pytest suite with coverage. No DB or network required.
-  #
-  # Usage (from project root):
-  #   docker compose run --rm test
-  #   docker compose run --rm test pytest tests/test_utils.py -v
-  #   docker compose run --rm test pytest tests/ --cov=app --cov-report=html
   test:
     build:
       context: ./backend
