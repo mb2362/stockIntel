@@ -174,8 +174,6 @@ def sanitise_symbol_param(symbol: str) -> str:
         HTTPException 400 if the symbol contains unexpected characters.
     """
     cleaned = symbol.strip().upper()
-    # Strip any URL-encoded noise
-    cleaned = re.sub(r"[^A-Z0-9\^\.\-]", "", cleaned)
     if not cleaned or not _SYMBOL_RE.match(cleaned):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
