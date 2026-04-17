@@ -466,7 +466,7 @@ async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
     change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
 
     raw = {
-        "symbol": symbol,
+        "symbol": symbol.upper(),
         "name": meta.get("shortName") or meta.get("symbol") or symbol,
         "price": qp.price,
         "change": change,
@@ -835,7 +835,7 @@ async def predict_future_price(symbol: str = Depends(sanitise_symbol_param), hor
     from app.api.utils.data_cleaner import clean_price as _cp, clean_int as _ci
     qp = _build_quote_parts(symbol)
     return {
-        "symbol": symbol,
+        "symbol": symbol.upper(),
         "horizonDays": _ci(horizon_days, default=7, min_val=1, max_val=365),
         "asOf": datetime.now(timezone.utc).isoformat(),
         "predictedPrice": _cp(qp.price),
