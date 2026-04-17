@@ -26,32 +26,20 @@ else:
 
     def _app(*parts): return os.path.join(_BACKEND, "app", *parts)
 
-    # ── pydantic ───────────────────────────────────────────────────────────────
-    class _BM:
-        model_config = {}
-        def __init__(self, **d): self.__dict__.update(d)
-    _stub("pydantic", BaseModel=_BM, ConfigDict=dict); _stub("pydantic.v1")
+    # ── pydantic + fastapi + starlette: use real packages ─────────────────────
+    # These are all installed in requirements.txt; stubbing them causes import
+    # conflicts because fastapi imports pydantic internals at load time.
+    import pydantic as _pydantic
+    import fastapi as _fastapi
+    HTTPException = _fastapi.HTTPException
+    # Keep a simple BaseModel stand-in for test helpers that use _BM directly
+    class _BM(_pydantic.BaseModel):
+        model_config = _pydantic.ConfigDict(arbitrary_types_allowed=True)
 
-    # ── fastapi ────────────────────────────────────────────────────────────────
-    class HTTPException(Exception):
-        def __init__(self, status_code=500, detail="", **kw):
-            self.status_code = status_code; self.detail = detail; super().__init__(detail)
-
-    class _Router:
-        def __init__(self, **kw): self.prefix = kw.get("prefix", "")
-        def get(self, p, **kw): return lambda fn: fn
-        def post(self, p, **kw): return lambda fn: fn
-        def delete(self, p, **kw): return lambda fn: fn
-        def include_router(self, r, **kw): pass
-
-    _stub("fastapi", APIRouter=_Router, HTTPException=HTTPException,
-          Depends=lambda d=None: None, Body=lambda *a, **kw: None)
-    _stub("fastapi.params", Depends=lambda d=None: None)
-    _stub("fastapi.security", OAuth2PasswordBearer=lambda *a, **kw: None,
-          OAuth2PasswordRequestForm=type('OAuth2PasswordRequestForm', (), {}))
-    _stub("fastapi.responses"); _stub("fastapi.middleware"); _stub("fastapi.middleware.cors",
-          CORSMiddleware=mock.MagicMock())
-    _stub("fastapi.routing", APIRouter=_Router)
+    # starlette is installed as a fastapi dependency – use the real package
+    # Re-register fastapi submodule stubs that test files patch directly via sys.modules
+    import fastapi.middleware.cors as _fmc
+    sys.modules.setdefault("fastapi.middleware.cors", _fmc)
 
     # ── sqlalchemy ─────────────────────────────────────────────────────────────
     _N = lambda *a, **kw: None
@@ -131,6 +119,8 @@ else:
     _pkg("app.api.auth",      _app("api", "auth"))
     _pkg("app.api.DTO",       _app("api", "DTO"))
     _pkg("app.api.endpoints", _app("api", "endpoints"))
+    _pkg("app.api.security",  _app("api", "security"))
+    _pkg("app.api.utils",     _app("api", "utils"))
     _pkg("app.database",      _app("database"))
 
     # ── db sub-module stubs ────────────────────────────────────────────────────
@@ -168,18 +158,39 @@ else:
           User=_UserM, Watchlist=_WLM, Portfolio=_WLM, News=_WLM)
     _stub("app.database.crud")
 
-    # ── DTO stubs ──────────────────────────────────────────────────────────────
-    class _UC2:
-        def __init__(self, username="", email="", password=""):
-            self.username = username; self.email = email; self.password = password
-
-    class _ME(str, Enum): STOCKS = "stocks"; FX = "fx"; OTC = "otc"; INDICIES = "indices"
-
-    _stub("app.api.DTO.schemas", UserCreate=_UC2, StockData=_BM, Token=_BM, UserBase=_BM, User=_BM)
-    _stub("app.api.DTO.marketenums", MarketEnum=_ME)
+    # ── DTO stubs: use real schemas (pydantic is real now) ────────────────────
+    # Import the real DTO modules so response_model= annotations satisfy FastAPI
+    import app.api.DTO.marketenums as _me_mod
+    import app.api.DTO.schemas as _sc_mod
+    sys.modules["app.api.DTO.marketenums"] = _me_mod
+    sys.modules["app.api.DTO.schemas"] = _sc_mod
 
     _this = sys.modules[__name__]
     _this._LOADED = True
     _this.HTTPException = HTTPException
     _this._CryptContext = _CC
     _this._FAKE_TOK = _FAKE_TOK
+
+
+# ---------------------------------------------------------------------------
+# Restore real fastapi classes after any test that replaces them in sys.modules
+# (TestMain.setUpClass replaces FastAPI/APIRouter and never restores them)
+# ---------------------------------------------------------------------------
+import fastapi as _real_fastapi
+import fastapi.routing as _real_fastapi_routing
+
+_REAL_FASTAPI_CLASS = _real_fastapi.FastAPI
+_REAL_APIROUTER_CLASS = _real_fastapi.APIRouter
+_REAL_ROUTING_APIROUTER = _real_fastapi_routing.APIRouter
+
+
+def pytest_runtest_teardown(item, nextitem):
+    """After every test, restore real FastAPI/APIRouter if a test replaced them."""
+    import sys
+    fa = sys.modules.get("fastapi")
+    if fa and getattr(fa, "FastAPI", None) is not _REAL_FASTAPI_CLASS:
+        fa.FastAPI = _REAL_FASTAPI_CLASS
+        fa.APIRouter = _REAL_APIROUTER_CLASS
+    fr = sys.modules.get("fastapi.routing")
+    if fr and getattr(fr, "APIRouter", None) is not _REAL_ROUTING_APIROUTER:
+        fr.APIRouter = _REAL_ROUTING_APIROUTER
