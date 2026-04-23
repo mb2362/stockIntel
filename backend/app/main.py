@@ -5,6 +5,7 @@ from fastapi.routing import APIRouter
 
 from app.api.endpoints import stocks, watchlist, portfolio, news, authendpoints
 from app.api.endpoints.market import router as market_router
+from app.api.endpoints.predict import router as predict_router
 from app.database import models, database
 
 
@@ -36,6 +37,7 @@ api_v1.include_router(watchlist.router, tags=["watchlist"])
 api_v1.include_router(portfolio.router, tags=["portfolio"])
 api_v1.include_router(news.router, tags=["news"])
 api_v1.include_router(authendpoints.router, prefix="/auth", tags=["auth"])
+api_v1.include_router(predict_router, tags=["predict"])
 
 app.include_router(api_v1)
 
