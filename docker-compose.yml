@@ -23,11 +23,16 @@ services:
     container_name: stock_api
     env_file:
       - ./backend/docker/.env.docker
+    environment:
+      MODELS_DIR: /models
     ports:
       - "8001:8000"
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./models:/models
 
   web:
     build:
