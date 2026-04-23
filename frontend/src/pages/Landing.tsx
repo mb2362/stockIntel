@@ -80,8 +80,8 @@ export default function Landing() {
     ];
 
     const stats = [
-        { value: '10K+', label: 'Active Users' },
-        { value: '50K+', label: 'Stocks Tracked' },
+        { value: '63%', label: 'Accuracy' },
+        { value: '100+', label: 'Stocks Tracked' },
         { value: '99.9%', label: 'Uptime' },
         { value: '24/7', label: 'Support' }
     ];
@@ -165,7 +165,7 @@ export default function Landing() {
                                 onClick={() => navigate('/dashboard')}
                                 className="text-lg px-8 py-4"
                             >
-                                Get Started Free
+                                Get Started
                             </Button>
                             <Button
                                 size="lg"

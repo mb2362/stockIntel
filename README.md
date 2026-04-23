@@ -89,7 +89,7 @@ The build fails if coverage drops below 70%. See [`.github/workflows/ci-cd.yml`]
 
 5. **Run the API:**
    ```bash
-   uvicorn app.main:app --reload
+   uvicorn app.main:app --reload --port 8001
    ```
 
 ### Run with Docker (recommended)
