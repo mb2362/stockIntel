@@ -18,10 +18,10 @@ interface NewsItem {
 
 interface SentimentData {
   date: string;
-  sentimentScore: number; // -1 to +1
+  sentimentScore: number;
 }
 
-/* ---------------- MOCK API (REPLACE LATER) ---------------- */
+/* ---------------- MOCK API ---------------- */
 
 const fetchNews = async (): Promise<NewsItem[]> => {
   return [
@@ -54,16 +54,40 @@ const fetchNews = async (): Promise<NewsItem[]> => {
 
 /* ---------------- TREND GENERATOR ---------------- */
 
-const generateSentimentTrend = (): SentimentData[] => {
-  return [
-    { date: "Mon", sentimentScore: 0.3 },
-    { date: "Tue", sentimentScore: -0.2 },
-    { date: "Wed", sentimentScore: 0.5 },
-    { date: "Thu", sentimentScore: 0.1 },
-    { date: "Fri", sentimentScore: 0.7 },
-    { date: "Sat", sentimentScore: -0.1 },
-    { date: "Sun", sentimentScore: 0.4 },
-  ];
+const generateSentimentTrend = (range: "7D" | "1M" | "1Y" | "5Y"): SentimentData[] => {
+  switch (range) {
+    case "7D":
+      return [
+        { date: "Mon", sentimentScore: 0.3 },
+        { date: "Tue", sentimentScore: -0.2 },
+        { date: "Wed", sentimentScore: 0.5 },
+        { date: "Thu", sentimentScore: 0.1 },
+        { date: "Fri", sentimentScore: 0.7 },
+        { date: "Sat", sentimentScore: -0.1 },
+        { date: "Sun", sentimentScore: 0.4 },
+      ];
+
+    case "1M":
+      return Array.from({ length: 30 }, (_, i) => ({
+        date: `Day ${i + 1}`,
+        sentimentScore: parseFloat((Math.random() * 2 - 1).toFixed(2)),
+      }));
+
+    case "1Y":
+      return Array.from({ length: 12 }, (_, i) => ({
+        date: `M${i + 1}`,
+        sentimentScore: parseFloat((Math.random() * 2 - 1).toFixed(2)),
+      }));
+
+    case "5Y":
+      return Array.from({ length: 5 }, (_, i) => ({
+        date: `Y${i + 1}`,
+        sentimentScore: parseFloat((Math.random() * 2 - 1).toFixed(2)),
+      }));
+
+    default:
+      return [];
+  }
 };
 
 /* ---------------- COMPONENT ---------------- */
@@ -71,6 +95,7 @@ const generateSentimentTrend = (): SentimentData[] => {
 export default function Analytics() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [trendData, setTrendData] = useState<SentimentData[]>([]);
+  const [range, setRange] = useState<"7D" | "1M" | "1Y" | "5Y">("7D");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,10 +107,10 @@ export default function Analytics() {
         const newsData = await fetchNews();
         setNews(newsData);
 
-        const trend = generateSentimentTrend();
+        const trend = generateSentimentTrend(range);
         setTrendData(trend);
 
-      } catch (err) {
+      } catch {
         setError("Failed to load analytics data");
       } finally {
         setLoading(false);
@@ -93,7 +118,7 @@ export default function Analytics() {
     };
 
     loadData();
-  }, []);
+  }, [range]);
 
   /* ---------------- HELPERS ---------------- */
 
@@ -119,14 +144,33 @@ export default function Analytics() {
         </p>
       </div>
 
-      {/* Sentiment Trend Chart */}
+      {/* Sentiment Trend */}
       <Card>
-        <h2 className="text-xl font-semibold mb-4">
-          Sentiment Trend (Last 7 Days)
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">
+            Sentiment Trend
+          </h2>
+
+          {/* Range Selector */}
+          <div className="flex gap-2">
+            {["7D", "1M", "1Y", "5Y"].map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r as any)}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition ${
+                  range === r
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {trendData.length > 0 ? (
-          <SentimentTrendChart data={trendData} />
+          <SentimentTrendChart data={trendData} range={range} />
         ) : (
           <p className="text-gray-500 text-center">
             No sentiment data available
