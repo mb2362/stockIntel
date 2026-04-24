@@ -45,7 +45,8 @@ else:
         def include_router(self, r, **kw): pass
 
     _stub("fastapi", APIRouter=_Router, HTTPException=HTTPException,
-          Depends=lambda d=None: None, Body=lambda *a, **kw: None)
+        Depends=lambda d=None: None, Body=lambda *a, **kw: None,
+        Query=lambda default=None, **kw: default)
     _stub("fastapi.params", Depends=lambda d=None: None)
     _stub("fastapi.security", OAuth2PasswordBearer=lambda *a, **kw: None,
           OAuth2PasswordRequestForm=type('OAuth2PasswordRequestForm', (), {}))

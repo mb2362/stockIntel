@@ -2,11 +2,15 @@
 import os
 import httpx
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import Query
+from fastapi import APIRouter, HTTPException
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 router = APIRouter()
 analyzer = SentimentIntensityAnalyzer()
+
+async def read_items():
+    return {"message": "News endpoint is active"}
 
 NEWSDATA_API_KEY = os.environ.get("NEWSDATA_API_KEY", "pub_dfb396622a514546b24b057496157fcd")
 NEWSDATA_URL = "https://newsdata.io/api/1/news"
