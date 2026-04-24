@@ -15,17 +15,17 @@ interface SentimentData {
 
 interface Props {
   data: SentimentData[];
-  range: "7D" | "1M" | "1Y" | "5Y";
+  range: "1D" | "1W" | "1M";
 }
 
 export default function SentimentTrendChart({ data, range }: Props) {
-  
+
   // Format X-axis based on range
   const formatXAxis = (value: string) => {
-    if (range === "1M") return value.replace("Day ", "");
-    if (range === "1Y") return value; // M1, M2...
-    if (range === "5Y") return value; // Y1, Y2...
-    return value; // Mon, Tue...
+    if (range === "1D") return value;        // "14:00", "15:00"...
+    if (range === "1W") return value;        // "Apr 17", "Apr 18"...
+    if (range === "1M") return value;        // "Apr 01", "Apr 07"...
+    return value;
   };
 
   // Format tooltip
@@ -37,34 +37,33 @@ export default function SentimentTrendChart({ data, range }: Props) {
     <div className="w-full h-80">
       <ResponsiveContainer>
         <LineChart data={data}>
-          {/* Grid */}
-          <CartesianGrid strokeDasharray="3 3" />
 
-          {/* X Axis */}
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+
           <XAxis
             dataKey="date"
             tickFormatter={formatXAxis}
             tick={{ fontSize: 12 }}
+            interval="preserveStartEnd"
           />
 
-          {/* Y Axis */}
           <YAxis
             domain={[-1, 1]}
             tickFormatter={(val) => val.toFixed(1)}
+            tick={{ fontSize: 12 }}
           />
 
-          {/* Tooltip */}
           <Tooltip formatter={formatTooltip} />
 
-          {/* Line */}
           <Line
             type="monotone"
             dataKey="sentimentScore"
             stroke="#3b82f6"
             strokeWidth={2}
-            dot={range === "7D"} // dots only for small dataset
+            dot={range === "1D"}       // dots only for hourly (small dataset)
             activeDot={{ r: 5 }}
           />
+
         </LineChart>
       </ResponsiveContainer>
     </div>

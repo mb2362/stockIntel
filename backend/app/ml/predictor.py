@@ -28,8 +28,10 @@ from zoneinfo import ZoneInfo
 logger = logging.getLogger(__name__)
 
 # ── Model assets root (mounted from host ./models/ to /models) ──────────────
-MODELS_DIR = os.environ.get("MODELS_DIR", "/models")
-
+MODELS_DIR = os.environ.get(
+    "MODELS_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "models")
+)
 # ── NYSE Market Calendar ──────────────────────────────────────────────────────
 _ET = ZoneInfo("America/New_York")
 
