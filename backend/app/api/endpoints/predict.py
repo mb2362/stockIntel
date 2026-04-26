@@ -9,8 +9,18 @@ from app.ml.predictor import predict
 router = APIRouter()
 
 ALLOWED_SYMBOLS = {
+    # ── Original 10 ────────────────────────────────────────
     "NVDA", "AMZN", "AXON", "AAPL", "ORCL",
     "MSFT", "JPM",  "META", "TSLA", "AMD",
+    # ── Additional 40 ──────────────────────────────────────
+    "GOOGL", "GOOG",  "NFLX", "UBER",  "CRM",
+    "ADBE",  "INTC",  "QCOM", "MU",    "AVGO",
+    "ARM",   "PANW",  "SNOW", "PLTR",  "SMCI",
+    "GS",    "MS",    "BAC",  "V",     "MA",
+    "BRK-B", "UNH",   "LLY",  "JNJ",   "PFE",
+    "XOM",   "CVX",   "COST", "WMT",   "TGT",
+    "HD",    "LOW",   "DIS",  "PYPL",  "XYZ",
+    "COIN",  "RIVN",  "NIO",  "LCID",  "SOFI",
 }
 
 

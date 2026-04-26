@@ -1,32 +1,98 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { ArrowUpRight, ArrowDownRight, Sparkles, TrendingUp, Activity, ChevronDown } from 'lucide-react';
+import {
+    ArrowUpRight, ArrowDownRight, Sparkles, TrendingUp,
+    Activity, ChevronDown, Newspaper, Search, X
+} from 'lucide-react';
 import { API_BASE_URL } from '../utils/constants';
 
 const ALLOWED_STOCKS = [
-    { symbol: 'NVDA',  name: 'NVIDIA Corporation' },
-    { symbol: 'AMZN',  name: 'Amazon.com Inc.' },
-    { symbol: 'AXON',  name: 'Axon Enterprise Inc.' },
-    { symbol: 'AAPL',  name: 'Apple Inc.' },
-    { symbol: 'ORCL',  name: 'Oracle Corporation' },
-    { symbol: 'MSFT',  name: 'Microsoft Corporation' },
-    { symbol: 'JPM',   name: 'JPMorgan Chase & Co.' },
-    { symbol: 'META',  name: 'Meta Platforms Inc.' },
-    { symbol: 'TSLA',  name: 'Tesla Inc.' },
-    { symbol: 'AMD',   name: 'Advanced Micro Devices' },
+    // ── Original 10 ────────────────────────────────────────
+    { symbol: 'NVDA',  name: 'NVIDIA Corporation',          sector: 'Technology' },
+    { symbol: 'AMZN',  name: 'Amazon.com Inc.',             sector: 'Consumer' },
+    { symbol: 'AXON',  name: 'Axon Enterprise Inc.',        sector: 'Technology' },
+    { symbol: 'AAPL',  name: 'Apple Inc.',                  sector: 'Technology' },
+    { symbol: 'ORCL',  name: 'Oracle Corporation',          sector: 'Technology' },
+    { symbol: 'MSFT',  name: 'Microsoft Corporation',       sector: 'Technology' },
+    { symbol: 'JPM',   name: 'JPMorgan Chase & Co.',        sector: 'Finance' },
+    { symbol: 'META',  name: 'Meta Platforms Inc.',         sector: 'Technology' },
+    { symbol: 'TSLA',  name: 'Tesla Inc.',                  sector: 'Automotive' },
+    { symbol: 'AMD',   name: 'Advanced Micro Devices',      sector: 'Technology' },
+    // ── Additional 40 ──────────────────────────────────────
+    { symbol: 'GOOGL', name: 'Alphabet Inc. (Class A)',     sector: 'Technology' },
+    { symbol: 'GOOG',  name: 'Alphabet Inc. (Class C)',     sector: 'Technology' },
+    { symbol: 'NFLX',  name: 'Netflix Inc.',                sector: 'Media' },
+    { symbol: 'UBER',  name: 'Uber Technologies',           sector: 'Technology' },
+    { symbol: 'CRM',   name: 'Salesforce Inc.',             sector: 'Technology' },
+    { symbol: 'ADBE',  name: 'Adobe Inc.',                  sector: 'Technology' },
+    { symbol: 'INTC',  name: 'Intel Corporation',           sector: 'Technology' },
+    { symbol: 'QCOM',  name: 'Qualcomm Inc.',               sector: 'Technology' },
+    { symbol: 'MU',    name: 'Micron Technology',           sector: 'Technology' },
+    { symbol: 'AVGO',  name: 'Broadcom Inc.',               sector: 'Technology' },
+    { symbol: 'ARM',   name: 'Arm Holdings',                sector: 'Technology' },
+    { symbol: 'PANW',  name: 'Palo Alto Networks',          sector: 'Technology' },
+    { symbol: 'SNOW',  name: 'Snowflake Inc.',              sector: 'Technology' },
+    { symbol: 'PLTR',  name: 'Palantir Technologies',       sector: 'Technology' },
+    { symbol: 'SMCI',  name: 'Super Micro Computer',        sector: 'Technology' },
+    { symbol: 'GS',    name: 'Goldman Sachs Group',         sector: 'Finance' },
+    { symbol: 'MS',    name: 'Morgan Stanley',              sector: 'Finance' },
+    { symbol: 'BAC',   name: 'Bank of America Corp.',       sector: 'Finance' },
+    { symbol: 'V',     name: 'Visa Inc.',                   sector: 'Finance' },
+    { symbol: 'MA',    name: 'Mastercard Inc.',             sector: 'Finance' },
+    { symbol: 'BRK-B', name: 'Berkshire Hathaway B',       sector: 'Finance' },
+    { symbol: 'UNH',   name: 'UnitedHealth Group',          sector: 'Healthcare' },
+    { symbol: 'LLY',   name: 'Eli Lilly and Company',      sector: 'Healthcare' },
+    { symbol: 'JNJ',   name: 'Johnson & Johnson',           sector: 'Healthcare' },
+    { symbol: 'PFE',   name: 'Pfizer Inc.',                 sector: 'Healthcare' },
+    { symbol: 'XOM',   name: 'Exxon Mobil Corporation',    sector: 'Energy' },
+    { symbol: 'CVX',   name: 'Chevron Corporation',         sector: 'Energy' },
+    { symbol: 'COST',  name: 'Costco Wholesale',            sector: 'Consumer' },
+    { symbol: 'WMT',   name: 'Walmart Inc.',                sector: 'Consumer' },
+    { symbol: 'TGT',   name: 'Target Corporation',          sector: 'Consumer' },
+    { symbol: 'HD',    name: 'Home Depot Inc.',             sector: 'Consumer' },
+    { symbol: 'LOW',   name: "Lowe's Companies",            sector: 'Consumer' },
+    { symbol: 'DIS',   name: 'The Walt Disney Company',     sector: 'Media' },
+    { symbol: 'PYPL',  name: 'PayPal Holdings',             sector: 'Finance' },
+    { symbol: 'XYZ',   name: 'Block Inc.',                  sector: 'Finance' },
+    { symbol: 'COIN',  name: 'Coinbase Global',             sector: 'Finance' },
+    { symbol: 'RIVN',  name: 'Rivian Automotive',           sector: 'Automotive' },
+    { symbol: 'NIO',   name: 'NIO Inc.',                    sector: 'Automotive' },
+    { symbol: 'LCID',  name: 'Lucid Group Inc.',            sector: 'Automotive' },
+    { symbol: 'SOFI',  name: 'SoFi Technologies',           sector: 'Finance' },
 ];
 
+const SECTORS = ['All', ...Array.from(new Set(ALLOWED_STOCKS.map(s => s.sector))).sort()];
+
+const SECTOR_COLORS: Record<string, string> = {
+    Technology: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    Finance:    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    Healthcare: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+    Consumer:   'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+    Energy:     'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+    Media:      'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+    Automotive: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+};
+
 interface Prediction {
-    symbol: string;
-    signal: 'BUY' | 'SELL' | 'HOLD';
-    confidence: number;
-    currentPrice: number;
+    symbol:         string;
+    signal:         'BUY' | 'SELL' | 'HOLD';
+    confidence:     number;
+    currentPrice:   number;
     predictedPrice: number;
-    pctChange: number;
-    targetDate: string;      // ISO date e.g. "2026-04-22"
-    marketIsOpen: boolean;
+    pctChange:      number;
+    targetDate:     string;
+    marketIsOpen:   boolean;
     confidenceNote: string;
+    sentimentScore: number;
+    sentimentUsed:  boolean;
+}
+
+// ── Dropdown position state ───────────────────────────────────────────────────
+interface DropdownRect {
+    top:   number;
+    left:  number;
+    width: number;
 }
 
 function formatTargetDate(isoDate: string): string {
@@ -36,30 +102,116 @@ function formatTargetDate(isoDate: string): string {
     });
 }
 
-export default function Predict() {
-    const [symbol, setSymbol] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [prediction, setPrediction] = useState<Prediction | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [dropdownOpen, setDropdownOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+function SentimentBar({ score, used }: { score: number; used: boolean }) {
+    const pct    = Math.round((score + 1) / 2 * 100);
+    const fill   = score > 0.1  ? 'bg-green-500 dark:bg-green-400'
+                 : score < -0.1 ? 'bg-red-500 dark:bg-red-400'
+                 :                'bg-gray-400 dark:bg-gray-500';
+    const label  = score > 0.1  ? 'Positive'
+                 : score < -0.1 ? 'Negative'
+                 :                'Neutral';
 
-    // Lock body scroll while dropdown is open
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Newspaper className="w-3.5 h-3.5" />
+                    News Sentiment
+                </p>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    score > 0.1  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
+                    score < -0.1 ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' :
+                                   'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                }`}>
+                    {label}
+                </span>
+            </div>
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                    className={`h-full rounded-full transition-all duration-700 ${fill}`}
+                    style={{ width: `${pct}%` }}
+                />
+            </div>
+            <div className="flex justify-between mt-1">
+                <span className="text-[10px] text-gray-400 dark:text-gray-600">Bearish</span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold">
+                    {score >= 0 ? '+' : ''}{score.toFixed(3)}
+                    {!used && <span className="ml-1 text-gray-400 dark:text-gray-600">(no live data)</span>}
+                </span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-600">Bullish</span>
+            </div>
+        </div>
+    );
+}
+
+export default function Predict() {
+    const [symbol,        setSymbol]        = useState('');
+    const [loading,       setLoading]       = useState(false);
+    const [prediction,    setPrediction]    = useState<Prediction | null>(null);
+    const [error,         setError]         = useState<string | null>(null);
+    const [dropdownOpen,  setDropdownOpen]  = useState(false);
+    const [dropdownRect,  setDropdownRect]  = useState<DropdownRect | null>(null);
+    const [search,        setSearch]        = useState('');
+    const [sector,        setSector]        = useState('All');
+    const triggerRef  = useRef<HTMLButtonElement>(null);
+    const searchRef   = useRef<HTMLInputElement>(null);
+
+    // ── Compute fixed position from trigger button ────────────────────────────
+    const openDropdown = () => {
+        if (triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setDropdownRect({
+                top:   rect.bottom + window.scrollY,
+                left:  rect.left   + window.scrollX,
+                width: rect.width,
+            });
+        }
+        setDropdownOpen(true);
+    };
+
+    // Focus search when dropdown opens
+    useEffect(() => {
+        if (dropdownOpen) setTimeout(() => searchRef.current?.focus(), 50);
+        else setSearch('');
+    }, [dropdownOpen]);
+
+    // Lock body scroll while dropdown open
     useEffect(() => {
         document.body.style.overflow = dropdownOpen ? 'hidden' : '';
         return () => { document.body.style.overflow = ''; };
     }, [dropdownOpen]);
 
-    // Close dropdown on outside click
+    // Close on outside click
     useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        function handler(e: MouseEvent) {
+            const target = e.target as Node;
+            const dropdownEl = document.getElementById('stock-dropdown-portal');
+            if (
+                triggerRef.current && !triggerRef.current.contains(target) &&
+                dropdownEl && !dropdownEl.contains(target)
+            ) {
                 setDropdownOpen(false);
             }
         }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    // ── Close dropdown on scroll so fixed position doesn't drift ─────────────
+    useEffect(() => {
+        const handleScroll = () => setDropdownOpen(false);
+        if (dropdownOpen) {
+            window.addEventListener('scroll', handleScroll, true);
+        }
+        return () => window.removeEventListener('scroll', handleScroll, true);
+    }, [dropdownOpen]);
+
+    const filteredStocks = ALLOWED_STOCKS.filter(s => {
+        const matchSector = sector === 'All' || s.sector === sector;
+        const q = search.toLowerCase();
+        const matchSearch = !q || s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
+        return matchSector && matchSearch;
+    });
 
     const selectedStock = ALLOWED_STOCKS.find(s => s.symbol === symbol) ?? null;
 
@@ -67,28 +219,20 @@ export default function Predict() {
         setSymbol(sym);
         setDropdownOpen(false);
         setPrediction(null);
-    };
-
-    const handlePredict = () => {
-        if (!symbol.trim()) return;
-        doPredict(symbol);
+        setError(null);
     };
 
     const doPredict = async (targetSymbol: string) => {
         setLoading(true);
         setPrediction(null);
         setError(null);
-
         try {
-            const res = await fetch(
-                `${API_BASE_URL}/predict/${targetSymbol}`
-            );
+            const res = await fetch(`${API_BASE_URL}/predict/${targetSymbol}`);
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: res.statusText }));
                 throw new Error(err.detail ?? 'Prediction failed');
             }
             const data = await res.json();
-
             setPrediction({
                 symbol:         data.symbol,
                 signal:         data.signal,
@@ -99,6 +243,8 @@ export default function Predict() {
                 targetDate:     data.target_date,
                 marketIsOpen:   data.market_is_open,
                 confidenceNote: data.confidence_note ?? '',
+                sentimentScore: data.sentiment_score ?? 0,
+                sentimentUsed:  data.sentiment_used  ?? false,
             });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Unknown error');
@@ -107,7 +253,6 @@ export default function Predict() {
         }
     };
 
-    // Signal helpers
     const signalColor = (sig: string) => {
         if (sig === 'BUY')  return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-200 dark:border-green-800/50';
         if (sig === 'SELL') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800/50';
@@ -136,7 +281,8 @@ export default function Predict() {
 
     return (
         <div className="space-y-8 max-w-4xl mx-auto pb-12">
-            {/* Header Section */}
+
+            {/* ── Header ─────────────────────────────────────────── */}
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-primary-600 to-purple-800 p-8 sm:p-12 text-white shadow-2xl">
                 <div className="absolute top-0 right-0 -mt-16 -mr-16 opacity-20 pointer-events-none">
                     <TrendingUp className="w-64 h-64" />
@@ -150,57 +296,44 @@ export default function Predict() {
                         Next-Day Price Predictor
                     </h1>
                     <p className="text-lg sm:text-xl text-indigo-100 max-w-2xl leading-relaxed">
-                        Harness the power of our advanced machine learning models to predict the closing price of your favorite stocks.
+                        Harness advanced machine learning — trained on 50 stocks with live news sentiment — to predict tomorrow's closing price.
                     </p>
+                    <div className="mt-4 flex items-center gap-2 text-indigo-200 text-sm">
+                        <Newspaper className="w-4 h-4" />
+                        <span>Now with Finnhub live news sentiment</span>
+                        <span className="px-2 py-0.5 rounded-full bg-white/20 text-xs font-semibold">NEW</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Stock Picker + Predict */}
+            {/* ── Stock Picker ────────────────────────────────────── */}
             <Card className="p-4 shadow-xl border border-gray-100 dark:border-gray-800 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl">
                 <div className="flex flex-col sm:flex-row items-center gap-3">
 
-                    {/* Custom dropdown */}
-                    <div ref={dropdownRef} className="relative flex-1 w-full">
+                    {/* Trigger button — no longer wraps the portal dropdown */}
+                    <div className="relative flex-1 w-full">
                         <button
-                            onClick={() => setDropdownOpen(prev => !prev)}
+                            ref={triggerRef}
+                            onClick={() => dropdownOpen ? setDropdownOpen(false) : openDropdown()}
                             className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-gray-50/80 dark:bg-gray-800/80 border border-transparent rounded-xl text-sm font-medium text-gray-900 dark:text-gray-100 hover:border-primary-500/40 focus:outline-none focus:border-primary-500/50 focus:ring-2 focus:ring-primary-500/10 transition-all"
                         >
                             {selectedStock ? (
                                 <span className="flex items-center gap-2">
                                     <span className="font-bold text-primary-600 dark:text-primary-400">{selectedStock.symbol}</span>
                                     <span className="text-gray-500 dark:text-gray-400 truncate">{selectedStock.name}</span>
+                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${SECTOR_COLORS[selectedStock.sector]}`}>
+                                        {selectedStock.sector}
+                                    </span>
                                 </span>
                             ) : (
-                                <span className="text-gray-400">Select a stock to predict…</span>
+                                <span className="text-gray-400">Select from 50 stocks…</span>
                             )}
                             <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
-
-                        {dropdownOpen && (
-                            <div className="absolute z-50 w-full mt-1.5 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-h-44 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
-                                {ALLOWED_STOCKS.map((stock) => (
-                                    <button
-                                        key={stock.symbol}
-                                        onClick={() => handleSelectStock(stock.symbol)}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-100/80 dark:hover:bg-gray-700/80 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-b-0 ${
-                                            symbol === stock.symbol ? 'bg-primary-50/60 dark:bg-primary-900/20' : ''
-                                        }`}
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <span className="font-bold text-gray-900 dark:text-gray-100 w-12 text-left">{stock.symbol}</span>
-                                            <span className="text-gray-500 dark:text-gray-400">{stock.name}</span>
-                                        </span>
-                                        {symbol === stock.symbol && (
-                                            <span className="text-xs font-semibold text-primary-600 dark:text-primary-400">Selected</span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </div>
 
                     <Button
-                        onClick={handlePredict}
+                        onClick={() => symbol.trim() && doPredict(symbol)}
                         loading={loading}
                         disabled={!symbol.trim()}
                         className="w-full sm:w-auto px-6 py-3 text-sm rounded-xl shadow-md shadow-primary-500/20 hover:shadow-primary-500/40 transition-all font-semibold"
@@ -211,7 +344,7 @@ export default function Predict() {
 
                 {/* Quick-pick pills */}
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                    {ALLOWED_STOCKS.map((stock) => (
+                    {ALLOWED_STOCKS.slice(0, 10).map(stock => (
                         <button
                             key={stock.symbol}
                             onClick={() => handleSelectStock(stock.symbol)}
@@ -224,17 +357,104 @@ export default function Predict() {
                             {stock.symbol}
                         </button>
                     ))}
+                    <button
+                        onClick={() => openDropdown()}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold transition-all border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400"
+                    >
+                        +40 more…
+                    </button>
                 </div>
             </Card>
 
-            {/* Error Banner */}
+            {/* ── Dropdown Portal — rendered at document level via fixed position ── */}
+            {dropdownOpen && dropdownRect && (
+                <div
+                    id="stock-dropdown-portal"
+                    className="fixed z-[9999] bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl"
+                    style={{
+                        top:   dropdownRect.top + 6,
+                        left:  dropdownRect.left,
+                        width: dropdownRect.width,
+                    }}
+                >
+                    {/* Search + sector filter */}
+                    <div className="p-2 border-b border-gray-100 dark:border-gray-700 space-y-2">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search symbol or name…"
+                                className="w-full pl-8 pr-8 py-2 text-sm bg-gray-50 dark:bg-gray-700/60 rounded-lg border border-transparent focus:outline-none focus:border-primary-500/40 text-gray-900 dark:text-gray-100 placeholder-gray-400"
+                            />
+                            {search && (
+                                <button
+                                    onClick={() => setSearch('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                        {/* Sector pills */}
+                        <div className="flex flex-wrap gap-1">
+                            {SECTORS.map(s => (
+                                <button
+                                    key={s}
+                                    onClick={() => setSector(s)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${
+                                        sector === s
+                                            ? 'bg-primary-600 text-white border-primary-600'
+                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-primary-400'
+                                    }`}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Stock list */}
+                    <div className="max-h-52 overflow-y-auto">
+                        {filteredStocks.length === 0 ? (
+                            <p className="text-center text-sm text-gray-400 py-6">No stocks match your search.</p>
+                        ) : filteredStocks.map(stock => (
+                            <button
+                                key={stock.symbol}
+                                onClick={() => handleSelectStock(stock.symbol)}
+                                className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-100/80 dark:hover:bg-gray-700/80 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-b-0 ${
+                                    symbol === stock.symbol ? 'bg-primary-50/60 dark:bg-primary-900/20' : ''
+                                }`}
+                            >
+                                <span className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-900 dark:text-gray-100 w-14 text-left">{stock.symbol}</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{stock.name}</span>
+                                </span>
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${SECTOR_COLORS[stock.sector]}`}>
+                                    {stock.sector}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                            {filteredStocks.length} of {ALLOWED_STOCKS.length} stocks
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Error ───────────────────────────────────────────── */}
             {error && (
                 <div className="rounded-2xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/20 px-5 py-4 text-sm text-red-700 dark:text-red-400 font-medium">
                     ⚠ {error}
                 </div>
             )}
 
-            {/* Prediction Result Section */}
+            {/* ── Prediction Result ────────────────────────────────── */}
             {prediction && (
                 <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -244,10 +464,9 @@ export default function Predict() {
                             <Card className="h-full p-8 border border-gray-200 dark:border-gray-800 shadow-xl rounded-3xl relative overflow-hidden group hover:border-primary-500/30 transition-colors">
                                 <div className="absolute inset-0 bg-gradient-to-br from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900 -z-10" />
 
-                                {/* Header row: date + badge + icon */}
+                                {/* Header row */}
                                 <div className="flex flex-wrap justify-between items-start gap-3 mb-8">
                                     <div>
-                                        {/* Date label + market status badge */}
                                         <div className="flex items-center gap-2 mb-3">
                                             <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                 Predicted Close &bull; {formatTargetDate(prediction.targetDate)}
@@ -255,20 +474,18 @@ export default function Predict() {
                                             {prediction.marketIsOpen ? (
                                                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/40">
                                                     <span className="relative flex h-1.5 w-1.5">
-                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
                                                     </span>
                                                     Market Open
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 dark:bg-gray-700/50 dark:text-gray-400 border border-gray-200 dark:border-gray-700/50">
-                                                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500 inline-block"></span>
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500 inline-block" />
                                                     Market Closed
                                                 </span>
                                             )}
                                         </div>
-
-                                        {/* Symbol + Signal badge */}
                                         <h2 className="text-5xl font-bold text-gray-900 dark:text-white flex items-center gap-4">
                                             {prediction.symbol}
                                             <span className={`flex items-center text-lg px-3 py-1.5 rounded-xl font-semibold shadow-sm ${signalColor(prediction.signal)}`}>
@@ -276,8 +493,12 @@ export default function Predict() {
                                                 {prediction.signal}
                                             </span>
                                         </h2>
+                                        {selectedStock && (
+                                            <span className={`inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full ${SECTOR_COLORS[selectedStock.sector]}`}>
+                                                {selectedStock.sector}
+                                            </span>
+                                        )}
                                     </div>
-
                                     <div className="p-4 bg-primary-50 dark:bg-primary-900/30 rounded-2xl border border-primary-100 dark:border-primary-800/50">
                                         <Activity className="w-8 h-8 text-primary-600 dark:text-primary-400" />
                                     </div>
@@ -285,7 +506,7 @@ export default function Predict() {
 
                                 {/* Price boxes */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-10">
-                                    <div className="p-6 rounded-3xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100/50 dark:border-gray-700/30 flex flex-col justify-between min-h-[130px] group/card hover:bg-white dark:hover:bg-gray-800 transition-all duration-300">
+                                    <div className="p-6 rounded-3xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100/50 dark:border-gray-700/30 flex flex-col justify-between min-h-[130px] hover:bg-white dark:hover:bg-gray-800 transition-all duration-300">
                                         <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Current / Last Close</p>
                                         <p className="text-4xl font-bold text-gray-900 dark:text-gray-100 mt-2 tracking-tight">
                                             ${prediction.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -298,8 +519,8 @@ export default function Predict() {
                                                 Predicted Close
                                             </p>
                                             <span className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm ${
-                                                prediction.pctChange >= 0 
-                                                    ? 'bg-green-100/80 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-200/50' 
+                                                prediction.pctChange >= 0
+                                                    ? 'bg-green-100/80 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-200/50'
                                                     : 'bg-red-100/80 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200/50'
                                             }`}>
                                                 {prediction.pctChange >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
@@ -312,12 +533,17 @@ export default function Predict() {
                                     </div>
                                 </div>
 
+                                {/* Sentiment bar */}
+                                <div className="mt-6 p-4 rounded-2xl bg-gray-50/60 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/50">
+                                    <SentimentBar score={prediction.sentimentScore} used={prediction.sentimentUsed} />
+                                </div>
+
                                 {/* Confidence footer */}
-                                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800/80">
+                                <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800/80">
                                     <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
                                         <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-500"></span>
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75" />
+                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-500" />
                                         </span>
                                         Model confidence:&nbsp;<strong>{(prediction.confidence * 100).toFixed(1)}%</strong>&nbsp;—&nbsp;{signalLabel(prediction.signal)}
                                         {prediction.confidenceNote && prediction.confidenceNote !== 'Models agree' && (
@@ -328,7 +554,7 @@ export default function Predict() {
                             </Card>
                         </div>
 
-                        {/* Model Insight Card */}
+                        {/* Signals + Sentiment Card */}
                         <div className="lg:col-span-1">
                             <Card className="h-full p-6 sm:p-8 border border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/40 shadow-lg rounded-3xl">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
@@ -354,7 +580,34 @@ export default function Predict() {
                                             <p className="text-sm text-gray-600 dark:text-gray-400 leading-snug">RSI levels suggest normal expected fluctuations.</p>
                                         </div>
                                     </li>
+                                    <li className="flex items-start gap-4">
+                                        <div className={`p-2.5 rounded-xl shadow-sm ${
+                                            prediction.sentimentScore > 0.1  ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' :
+                                            prediction.sentimentScore < -0.1 ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' :
+                                                                                'bg-gray-100 dark:bg-gray-700/40 text-gray-500 dark:text-gray-400'
+                                        }`}>
+                                            <Newspaper className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 dark:text-gray-100 leading-none mb-1.5 flex items-center gap-2">
+                                                News Sentiment
+                                                {prediction.sentimentUsed && (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                                                        LIVE
+                                                    </span>
+                                                )}
+                                            </p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400 leading-snug">
+                                                {prediction.sentimentScore > 0.1
+                                                    ? 'Positive news flow supports the bullish outlook.'
+                                                    : prediction.sentimentScore < -0.1
+                                                    ? 'Negative headlines may weigh on price.'
+                                                    : 'News tone is broadly neutral.'}
+                                            </p>
+                                        </div>
+                                    </li>
                                 </ul>
+
                                 <div className="mt-8 p-4 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50 rounded-2xl">
                                     <p className="text-sm text-amber-800 dark:text-amber-500 leading-relaxed font-medium">
                                         <strong className="block mb-1">Disclaimer</strong>
