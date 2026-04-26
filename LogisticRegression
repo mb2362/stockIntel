@@ -1,0 +1,72 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+df = yf.download("AAPL", period="5y", interval="1d")
+df = df.reset_index()
+df = df.sort_values("Date")
+
+df["sma_10"] = df["Close"].rolling(window=10).mean()
+df["sma_20"] = df["Close"].rolling(window=20).mean()
+
+delta = df["Close"].diff()
+gain = delta.clip(lower=0)
+loss = -delta.clip(upper=0)
+avg_gain = gain.rolling(14).mean()
+avg_loss = loss.rolling(14).mean()
+rs = avg_gain / avg_loss
+df["rsi_14"] = 100 - (100 / (1 + rs))
+
+ema12 = df["Close"].ewm(span=12, adjust=False).mean()
+ema26 = df["Close"].ewm(span=26, adjust=False).mean()
+df["macd"] = ema12 - ema26
+df["macd_signal"] = df["macd"].ewm(span=9, adjust=False).mean()
+
+rolling_mean = df["Close"].rolling(20).mean()
+rolling_std = df["Close"].rolling(20).std()
+df["bb_upper"] = rolling_mean + (2 * rolling_std)
+df["bb_lower"] = rolling_mean - (2 * rolling_std)
+
+df["return"] = df["Close"].pct_change()
+df["target"] = (df["return"].shift(-1) > 0).astype(int)
+df = df.dropna()
+
+feature_cols = [
+    "sma_10",
+    "sma_20",
+    "rsi_14",
+    "macd",
+    "macd_signal",
+    "bb_upper",
+    "bb_lower",
+    "Volume",
+]
+
+X = df[feature_cols]
+y = df["target"]
+
+split_index = int(len(df) * 0.8)
+X_train = X[:split_index]
+X_test = X[split_index:]
+y_train = y[:split_index]
+y_test = y[split_index:]
+
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train, y_train)
+
+pred = model.predict(X_test)
+print("Accuracy:", accuracy_score(y_test, pred))
+print(classification_report(y_test, pred))
+
+prob = model.predict_proba(X_test.iloc[[-1]])[:, 1][0]
+if prob > 0.6:
+    signal = "BUY"
+elif prob < 0.4:
+    signal = "SELL"
+else:
+    signal = "HOLD"
+
+print("Signal:", signal)
+print("Confidence:", round(prob, 2))

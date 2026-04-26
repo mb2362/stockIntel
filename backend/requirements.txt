@@ -1,0 +1,19 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+SQLAlchemy==2.0.32
+psycopg2-binary==2.9.9
+pydantic==2.8.2
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.1
+yfinance>=1.2.0
+pandas==2.2.3
+PyJWT==2.9.0
+curl_cffi>=0.10
+python-multipart==0.0.9
+# ML inference — CPU-only torch (~200 MB instead of 2 GB GPU build)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.0+cpu
+numpy>=1.24
+scikit-learn>=1.4
+joblib>=1.3

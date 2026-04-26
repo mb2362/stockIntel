@@ -1,0 +1,76 @@
+services:
+  db:
+    image: postgres:16
+    container_name: stock_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stockmarket
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stockmarket"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    container_name: stock_api
+    env_file:
+      - ./backend/docker/.env.docker
+    environment:
+      MODELS_DIR: /models
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./models:/models
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: stock_web
+    environment:
+      VITE_API_BASE_URL: http://localhost:8001/api/v1
+      VITE_USE_MOCK_API: "false"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # ── Test service ────────────────────────────────────────────────────────────
+  # Runs the full pytest suite with coverage. No DB or network required.
+  #
+  # Usage (from project root):
+  #   docker compose run --rm test
+  #   docker compose run --rm test pytest tests/test_utils.py -v
+  #   docker compose run --rm test pytest tests/ --cov=app --cov-report=html
+  test:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.test
+    container_name: stock_test
+    environment:
+      SECRET_KEY: test-secret-key-for-ci
+      DATABASE_URL: "sqlite:///:memory:"
+    volumes:
+      # Mount source live so you don't need to rebuild on every code change
+      - ./backend:/app
+    # No depends_on: tests are fully offline – no DB or API needed
+
+volumes:
+  postgres_data:

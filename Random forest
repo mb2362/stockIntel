@@ -1,0 +1,101 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+
+df = yf.download("AAPL", period="5y", interval="1d")
+
+# Flatten MultiIndex columns
+if isinstance(df.columns, pd.MultiIndex):
+    df.columns = [col[0] for col in df.columns]
+
+df = df.reset_index()
+df = df.sort_values("Date")
+
+df["sma_10"] = df["Close"].rolling(10).mean()
+df["sma_20"] = df["Close"].rolling(20).mean()
+
+delta = df["Close"].diff()
+gain = delta.clip(lower=0)
+loss = -delta.clip(upper=0)
+avg_gain = gain.rolling(14).mean()
+avg_loss = loss.rolling(14).mean()
+rs = avg_gain / avg_loss
+df["rsi_14"] = 100 - (100 / (1 + rs))
+
+ema12 = df["Close"].ewm(span=12, adjust=False).mean()
+ema26 = df["Close"].ewm(span=26, adjust=False).mean()
+df["macd"] = ema12 - ema26
+df["macd_signal"] = df["macd"].ewm(span=9, adjust=False).mean()
+
+rolling_mean = df["Close"].rolling(20).mean()
+rolling_std = df["Close"].rolling(20).std()
+df["bb_upper"] = rolling_mean + (2 * rolling_std)
+df["bb_lower"] = rolling_mean - (2 * rolling_std)
+df["bb_width"] = (df["bb_upper"] - df["bb_lower"]) / df["Close"]
+
+df["return"] = df["Close"].pct_change()
+df["return_3d"] = df["Close"].pct_change(3)
+df["return_5d"] = df["Close"].pct_change(5)
+
+df["volatility_5d"] = df["return"].rolling(5).std()
+df["volatility_10d"] = df["return"].rolling(10).std()
+
+df["dist_sma_10"] = (df["Close"] - df["sma_10"]) / df["sma_10"]
+df["dist_sma_20"] = (df["Close"] - df["sma_20"]) / df["sma_20"]
+
+df["target"] = (df["return"].shift(-1) > 0.002).astype(int)
+df = df.dropna()
+
+feature_cols = [
+    "rsi_14",
+    "macd",
+    "macd_signal",
+    "bb_width",
+    "return_3d",
+    "return_5d",
+    "volatility_5d",
+    "volatility_10d",
+    "dist_sma_10",
+    "dist_sma_20",
+    "Volume",
+]
+
+X = df[feature_cols]
+y = df["target"]
+
+split_index = int(len(df) * 0.8)
+X_train = X[:split_index]
+X_test = X[split_index:]
+y_train = y[:split_index]
+y_test = y[split_index:]
+
+rf = RandomForestClassifier(
+    n_estimators=500,
+    max_depth=8,
+    random_state=42,
+)
+
+rf.fit(X_train, y_train)
+
+rf_pred = rf.predict(X_test)
+print("RF Accuracy:", accuracy_score(y_test, rf_pred))
+print(classification_report(y_test, rf_pred))
+
+importance = pd.Series(rf.feature_importances_, index=X.columns)
+print(importance.sort_values(ascending=False))
+
+rf_prob = rf.predict_proba(X_test)[:, 1]
+print("RF ROC-AUC:", roc_auc_score(y_test, rf_prob))
+
+prob = rf.predict_proba(X_test.iloc[[-1]])[:, 1][0]
+if prob > 0.6:
+    signal = "BUY"
+elif prob < 0.4:
+    signal = "SELL"
+else:
+    signal = "HOLD"
+
+print("Signal:", signal)
+print("Confidence:", round(prob, 2))
