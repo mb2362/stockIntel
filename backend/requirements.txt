@@ -11,3 +11,4 @@ pandas==2.2.3
 PyJWT==2.9.0
 curl_cffi>=0.10
 python-multipart==0.0.9
+starlette>=0.40.0
