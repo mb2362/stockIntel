@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { usePaginatedStocks, useDetailedSearch } from '../hooks/useStockData';
+import { useState, useMemo } from 'react';
+import { usePaginatedStocks } from '../hooks/useStockData';
 import { Card } from '../components/common/Card';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorMessage } from '../components/common/ErrorMessage';
@@ -20,40 +20,34 @@ export default function StockList() {
     const [page, setPage] = useState(1);
     const limit = 10;
 
-    const { data: paginatedData, loading: paginatedLoading, error: paginatedError, refetch: refetchPaginated } = usePaginatedStocks(page, limit, true);
-    const { data: searchData, loading: searchLoading, error: searchError, refetch: refetchSearch } = useDetailedSearch(searchQuery, true);
+    const { data: paginatedData, loading, error, refetch } = usePaginatedStocks(page, limit, true);
 
     const isSearching = searchQuery.trim().length > 0;
 
-    // Reset pagination to page 1 if we're not searching anymore
-    useEffect(() => {
-        if (!isSearching) {
-            // we could reset if needed, but doing nothing keeps them on their last viewed page
-        }
-    }, [isSearching]);
-
     const displayStocks = useMemo(() => {
-        const sourceData = isSearching ? searchData : paginatedData?.data;
+        const sourceData = paginatedData?.data;
         if (!sourceData) return [];
 
         let result = [...sourceData];
 
+        // Client-side filtering
+        if (isSearching) {
+            const query = searchQuery.toLowerCase();
+            result = result.filter(stock =>
+                stock.symbol.toLowerCase().includes(query) ||
+                stock.name.toLowerCase().includes(query)
+            );
+        }
+
+        // Sorting
         result.sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) {
-                return sortConfig.direction === 'asc' ? -1 : 1;
-            }
-            if (a[sortConfig.key] > b[sortConfig.key]) {
-                return sortConfig.direction === 'asc' ? 1 : -1;
-            }
+            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
 
         return result;
-    }, [searchData, paginatedData, isSearching, sortConfig]);
-
-    const loading = isSearching ? searchLoading : paginatedLoading;
-    const error = isSearching ? searchError : paginatedError;
-    const refetch = isSearching ? refetchSearch : refetchPaginated;
+    }, [paginatedData, isSearching, searchQuery, sortConfig]);
 
     const handleSort = (key: SortConfig['key']) => {
         setSortConfig(prev => ({
@@ -62,10 +56,9 @@ export default function StockList() {
         }));
     };
 
-    const SortIcon = ({ column }: { column: SortConfig['key'] }) => {
-        if (sortConfig.key !== column) return <ArrowUpDown className="w-4 h-4 opacity-50" />;
-        return <ArrowUpDown className="w-4 h-4" />;
-    };
+    const SortIcon = ({ column }: { column: SortConfig['key'] }) => (
+        <ArrowUpDown className={clsx('w-4 h-4', sortConfig.key !== column && 'opacity-50')} />
+    );
 
     return (
         <div className="space-y-6">
@@ -164,7 +157,9 @@ export default function StockList() {
                                                         ? 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-400'
                                                         : 'bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-400'
                                                 )}>
-                                                    {stock.changePercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                                    {stock.changePercent >= 0
+                                                        ? <TrendingUp className="w-3 h-3" />
+                                                        : <TrendingDown className="w-3 h-3" />}
                                                     {formatPercentage(stock.changePercent)}
                                                 </div>
                                             </td>
@@ -176,7 +171,9 @@ export default function StockList() {
                                     {displayStocks.length === 0 && (
                                         <tr>
                                             <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                                                {isSearching ? `No stocks found matching "${searchQuery}"` : "No stocks available"}
+                                                {isSearching
+                                                    ? `No stocks found matching "${searchQuery}"`
+                                                    : 'No stocks available'}
                                             </td>
                                         </tr>
                                     )}
@@ -185,10 +182,14 @@ export default function StockList() {
                         </div>
                     </Card>
 
+                    {/* Pagination — hidden while searching */}
                     {!isSearching && paginatedData && paginatedData.pages > 1 && (
                         <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mt-4">
                             <div className="text-sm text-gray-700 dark:text-gray-300">
-                                Showing <span className="font-medium">{((page - 1) * limit) + 1}</span> to <span className="font-medium">{Math.min(page * limit, paginatedData.total)}</span> of <span className="font-medium">{paginatedData.total}</span> stocks
+                                Showing{' '}
+                                <span className="font-medium">{((page - 1) * limit) + 1}</span> to{' '}
+                                <span className="font-medium">{Math.min(page * limit, paginatedData.total)}</span> of{' '}
+                                <span className="font-medium">{paginatedData.total}</span> stocks
                             </div>
                             <div className="flex items-center gap-4">
                                 <button
