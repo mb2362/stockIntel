@@ -149,26 +149,37 @@ class TestAuthEndpoints(unittest.TestCase):
     def setUpClass(cls):
         class _Form: username = "testuser"; password = "testpass"
         class _UserM: id = 1; username = "testuser"; email = "t@x.com"; hashed_password = "hashed_testpass"
-        cls._UserM = _UserM; cls._Form = _Form
+        cls._UserM = _UserM
+        cls._Form = _Form
 
+        # Build a real module for authhelper so FastAPI's inspect.signature()
+        # sees real callables — AsyncMock / MagicMock have no __code__ and
+        # cause "TypeError: 'Mock' object is not subscriptable" at route registration.
         helper = types.ModuleType("app.api.auth.authhelper")
-        helper.verify_password   = lambda p, h: h == f"hashed_{p}"
-        helper.get_password_hash = lambda pw: f"hashed_{pw}"
-        helper.create_access_token = lambda data, expires_delta=None: "test.token"
-        helper.get_current_user    = mock.AsyncMock(return_value=_UserM())
+        helper.verify_password             = lambda p, h: h == f"hashed_{p}"
+        helper.get_password_hash           = lambda pw: f"hashed_{pw}"
+        helper.create_access_token         = lambda data, expires_delta=None: "test.token"
         helper.ACCESS_TOKEN_EXPIRE_MINUTES = 30
-        helper.timedelta = __import__("datetime").timedelta
+        helper.timedelta                   = __import__("datetime").timedelta
+
+        # ✅ Must be a real async def — AsyncMock breaks inspect.signature()
+        _user_instance = _UserM()
+        async def _fake_get_current_user():
+            return _user_instance
+        helper.get_current_user = _fake_get_current_user
+
         sys.modules["app.api.auth.authhelper"] = helper
-        sys.modules["app.api.auth"].authhelper = helper
+        sys.modules["app.api.auth"].authhelper  = helper
 
         crud = sys.modules["app.database.crud"]
         crud.get_user_by_username = mock.MagicMock(return_value=_UserM())
-        crud.create_user = mock.MagicMock(return_value=_UserM())
+        crud.create_user          = mock.MagicMock(return_value=_UserM())
         cls.crud = crud
 
         class _UC: username = "newuser"; email = "n@x.com"; password = "pw"
         sys.modules["app.api.DTO.schemas"].UserCreate = _UC
 
+        # Force fresh import so the patched authhelper is picked up
         if "app.api.endpoints.authendpoints" in sys.modules:
             del sys.modules["app.api.endpoints.authendpoints"]
         cls.ae = importlib.import_module("app.api.endpoints.authendpoints")
@@ -217,7 +228,8 @@ class TestAuthEndpoints(unittest.TestCase):
         result = _run(self.ae.read_users_me(current_user=fake_user))
         self.assertIs(result, fake_user)
 
-    def test_router_exists(self): self.assertTrue(hasattr(self.ae, "router"))
+    def test_router_exists(self):
+        self.assertTrue(hasattr(self.ae, "router"))
 
 
 class TestMain(unittest.TestCase):

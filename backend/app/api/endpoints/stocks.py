@@ -15,7 +15,6 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 import time
 from app.database import crud, database, models
-<<<<<<< Updated upstream
 from app.api.utils.data_cleaner import (
     normalise_quote, normalise_stock_detail, normalise_historical,
     normalise_indicators, normalise_news_article, normalise_search_result,
@@ -23,12 +22,10 @@ from app.api.utils.data_cleaner import (
     clean_symbol, clean_str, clean_market_cap, clean_volume,
 )
 from app.api.security.middleware import sanitise_symbol_param
-=======
 from app.cache import (
     cache_get, cache_set, make_key,
     TTL_QUOTE, TTL_HISTORICAL, TTL_INFO, TTL_NEWS, TTL_OVERVIEW,
 )
->>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +83,6 @@ def _safe_int(x: Any, default: int = 0) -> int:
 
 
 def _ticker(symbol: str) -> yf.Ticker:
-    # Use the shared browser-spoofed session to avoid rate-limiting
     return yf.Ticker(symbol, session=_session)
 
 
@@ -121,9 +117,7 @@ def _bootstrap_yahoo_session() -> Optional[str]:
     if _crumb:
         return _crumb
     try:
-        # Visit the homepage to set session cookies (A3, etc.)
         _session.get("https://finance.yahoo.com", headers=_YAHOO_HTML_HEADERS, timeout=10, allow_redirects=True)
-        # Fetch the crumb with the session cookies now set
         resp = _session.get(
             "https://query1.finance.yahoo.com/v1/test/getcrumb",
             headers=_YAHOO_HEADERS,
@@ -138,7 +132,6 @@ def _bootstrap_yahoo_session() -> Optional[str]:
     return None
 
 
-# Bootstrap the Yahoo session at module load time (best-effort)
 try:
     _bootstrap_yahoo_session()
 except Exception:
@@ -146,7 +139,6 @@ except Exception:
 
 
 def _yahoo_chart(symbol: str) -> Dict[str, Any]:
-    """Directly call Yahoo Finance v8 chart API — no crumb/cookie required."""
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     params = {"interval": "1d", "range": "2d"}
     resp = _session.get(url, headers=_YAHOO_HEADERS, params=params, timeout=10)
@@ -155,7 +147,6 @@ def _yahoo_chart(symbol: str) -> Dict[str, Any]:
 
 
 def _yahoo_quote(symbol: str) -> Dict[str, Any]:
-    """Call Yahoo Finance v8 chart API — returns price/OHLV from chart meta. No auth required."""
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     params = {"interval": "1d", "range": "2d", "includePrePost": "false"}
     resp = _session.get(url, headers=_YAHOO_HEADERS, params=params, timeout=10)
@@ -169,7 +160,6 @@ def _yahoo_quote(symbol: str) -> Dict[str, Any]:
 
 
 def _yahoo_historical(symbol: str, range_key: str) -> List[Dict[str, Any]]:
-    """Fetch OHLCV historical data via v8 chart API."""
     interval, v8_range = TIME_RANGE_TO_V8.get(range_key, ("1d", "1mo"))
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     params = {"interval": interval, "range": v8_range, "includePrePost": "false"}
@@ -184,10 +174,10 @@ def _yahoo_historical(symbol: str, range_key: str) -> List[Dict[str, Any]]:
     timestamps = chart.get("timestamp", [])
     indicators = chart.get("indicators", {})
     quotes = (indicators.get("quote") or [{}])[0]
-    opens  = quotes.get("open",   [])
-    highs  = quotes.get("high",   [])
-    lows   = quotes.get("low",    [])
-    closes = quotes.get("close",  [])
+    opens   = quotes.get("open",   [])
+    highs   = quotes.get("high",   [])
+    lows    = quotes.get("low",    [])
+    closes  = quotes.get("close",  [])
     volumes = quotes.get("volume", [])
 
     is_intraday = interval in ("1m", "5m", "15m", "30m", "60m", "90m")
@@ -209,7 +199,6 @@ def _yahoo_historical(symbol: str, range_key: str) -> List[Dict[str, Any]]:
 
 
 def _yahoo_summary(symbol: str) -> Dict[str, Any]:
-    """Fetch rich company info via Yahoo Finance v10 quoteSummary (needs crumb)."""
     crumb = _bootstrap_yahoo_session()
     if not crumb:
         return {}
@@ -220,7 +209,6 @@ def _yahoo_summary(symbol: str) -> Dict[str, Any]:
     }
     resp = _session.get(url, headers=_YAHOO_HEADERS, params=params, timeout=10)
     if resp.status_code != 200:
-        # Crumb may have expired — refresh and retry once
         global _crumb
         _crumb = None
         crumb = _bootstrap_yahoo_session()
@@ -242,15 +230,12 @@ def _yahoo_summary(symbol: str) -> Dict[str, Any]:
 
 
 def _history_for_quote(t: yf.Ticker) -> pd.DataFrame:
-    # Use 2 days to compute prevClose reliably.
     h = t.history(period="2d", interval="1d", auto_adjust=False)
     return h if h is not None else pd.DataFrame()
 
 
 def _get_info_best_effort(t: yf.Ticker) -> Dict[str, Any]:
-    """Try to get company info, first from direct Yahoo API, fall back to yfinance."""
     try:
-        # Try direct API first (not affected by crumb rate-limit)
         symbol = t.ticker
         meta = _yahoo_quote(symbol)
         if meta:
@@ -258,8 +243,8 @@ def _get_info_best_effort(t: yf.Ticker) -> Dict[str, Any]:
                 "shortName": meta.get("shortName") or meta.get("symbol"),
                 "longName": meta.get("longName") or meta.get("shortName"),
                 "marketCap": meta.get("marketCap"),
-                "sector": None,   # v8 chart meta doesn't include sector
-                "industry": None, # v8 chart meta doesn't include industry
+                "sector": None,
+                "industry": None,
             }
     except Exception:
         pass
@@ -281,7 +266,7 @@ class QuoteParts:
 
 
 _quote_cache: Dict[str, Dict[str, Any]] = {}
-CACHE_TTL = 15  # seconds — updated to match frontend auto-refresh pacing
+CACHE_TTL = 15  # seconds
 
 def _build_quote_parts(symbol: str) -> QuoteParts:
     now = time.time()
@@ -289,7 +274,6 @@ def _build_quote_parts(symbol: str) -> QuoteParts:
     if cached and (now - cached["time"] < CACHE_TTL):
         return cached["data"]
 
-    # Try Redis cache before hitting Yahoo Finance
     redis_key = make_key("quote_parts", symbol)
     redis_cached = cache_get(redis_key)
     if redis_cached:
@@ -298,7 +282,6 @@ def _build_quote_parts(symbol: str) -> QuoteParts:
         return result
 
     try:
-        # Direct Yahoo Finance API call — bypasses yfinance crumb authentication
         q = _yahoo_quote(symbol)
         price = _safe_float(q.get("regularMarketPrice"))
         prev_close = _safe_float(q.get("chartPreviousClose") or q.get("previousClose"))
@@ -319,7 +302,6 @@ def _build_quote_parts(symbol: str) -> QuoteParts:
             volume=vol,
         )
         _quote_cache[symbol] = {"time": time.time(), "data": result}
-        # Persist in Redis for cross-process sharing
         cache_set(redis_key, {
             "price": result.price, "prev_close": result.prev_close,
             "open": result.open, "high": result.high,
@@ -328,7 +310,6 @@ def _build_quote_parts(symbol: str) -> QuoteParts:
         return result
 
     except Exception as e:
-        # Return stale cache if available rather than failing hard
         if cached and cached.get("data"):
             logger.warning(f"Yahoo API failed for {symbol}, returning stale cache. Error: {e}")
             return cached["data"]
@@ -364,7 +345,6 @@ def _compute_macd(close: pd.Series) -> Dict[str, float]:
 
 
 def _demo_user(db: Session) -> models.User:
-    # Single-user mode for MVP (no auth required by current frontend)
     username = "demo"
     user = db.query(models.User).filter(models.User.username == username).first()
     if user:
@@ -381,14 +361,8 @@ async def ping():
     return {"message": "Stocks endpoint works"}
 
 
-# -----------------------------
-# Frontend-aligned endpoints
-# -----------------------------
-
-
 @router.get("/search")
 async def search_stocks(q: str):
-    """Frontend expects: GET /stocks/search?q=... returning SearchResult[]."""
     q = (q or "").strip()
     if not q:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -422,15 +396,12 @@ async def get_top_gainers():
         "NVDA","TSLA","AMD","META","AAPL",
         "AMZN","MSFT","GOOGL","NFLX","INTC"
     ]
-
     results = []
-
     for sym in symbols:
         try:
             qp = _build_quote_parts(sym)
             change = qp.price - qp.prev_close
             change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
-
             if change_pct > 0:
                 raw = {
                     "symbol": sym, "name": sym, "price": qp.price,
@@ -439,7 +410,6 @@ async def get_top_gainers():
                 results.append(normalise_quote(raw, sym))
         except Exception:
             continue
-
     results.sort(key=lambda x: x["changePercent"], reverse=True)
     return results[:5]
 
@@ -450,15 +420,12 @@ async def get_top_losers():
         "NVDA","TSLA","AMD","META","AAPL",
         "AMZN","MSFT","GOOGL","NFLX","INTC"
     ]
-
     results = []
-
     for sym in symbols:
         try:
             qp = _build_quote_parts(sym)
             change = qp.price - qp.prev_close
             change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
-
             if change_pct < 0:
                 raw = {
                     "symbol": sym, "name": sym, "price": qp.price,
@@ -467,21 +434,17 @@ async def get_top_losers():
                 results.append(normalise_quote(raw, sym))
         except Exception:
             continue
-
     results.sort(key=lambda x: x["changePercent"])
     return results[:5]
 
 
 @router.get("/{symbol}/quote")
 async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
-    """Frontend expects StockQuote."""
-
     cache_key = make_key("quote", symbol)
     cached_result = cache_get(cache_key)
     if cached_result is not None:
         return cached_result
 
-    # Use v8 chart meta for company info (no yfinance crumb session required)
     try:
         meta = _yahoo_quote(symbol)
     except Exception:
@@ -491,13 +454,8 @@ async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
     change = qp.price - qp.prev_close
     change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
 
-<<<<<<< Updated upstream
     raw = {
         "symbol": symbol.upper(),
-=======
-    result = {
-        "symbol": symbol,
->>>>>>> Stashed changes
         "name": meta.get("shortName") or meta.get("symbol") or symbol,
         "price": qp.price,
         "change": change,
@@ -516,25 +474,18 @@ async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
         "dividendYield": meta.get("dividendYield"),
         "beta": meta.get("beta"),
     }
-<<<<<<< Updated upstream
-    return normalise_quote(raw, symbol)
-=======
+    result = normalise_quote(raw, symbol)
     cache_set(cache_key, result, ttl=TTL_QUOTE)
     return result
->>>>>>> Stashed changes
 
 
 @router.get("/{symbol}/info")
 async def get_stock_info(symbol: str = Depends(sanitise_symbol_param)):
-    """Frontend expects StockDetails."""
-
-    # Use v8 chart meta for price + basic info
     try:
         meta = _yahoo_quote(symbol)
     except Exception:
         meta = {}
 
-    # Use v10 quoteSummary for rich company info (description, sector, website etc.)
     try:
         summary = _yahoo_summary(symbol)
     except Exception:
@@ -546,24 +497,14 @@ async def get_stock_info(symbol: str = Depends(sanitise_symbol_param)):
 
     name = meta.get("shortName") or summary.get("name") or symbol
 
-    # Persist basic metadata in DB (best-effort)
     try:
         db = next(database.get_db())
         if not crud.get_stock_by_ticker(db, symbol):
-            crud.create_stock(
-                db,
-                {
-                    "ticker": symbol,
-                    "name": name,
-                    "market": "stocks",
-                    "active": True,
-                },
-            )
+            crud.create_stock(db, {"ticker": symbol, "name": name, "market": "stocks", "active": True})
     except Exception:
         pass
 
     def _raw(d, key):
-        """Safely extract raw value from quoteSummary nested {raw, fmt} dicts."""
         v = d.get(key)
         if isinstance(v, dict):
             return v.get("raw") or v.get("fmt")
@@ -600,9 +541,6 @@ async def get_stock_info(symbol: str = Depends(sanitise_symbol_param)):
 
 @router.get("")
 async def get_all_stocks(page: int = 1, limit: int = 10):
-    """
-    Return paginated quotes for popular US stocks.
-    """
     symbols = [
         "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "JPM", "V", "WMT", "JNJ", "PG", "MA",
         "HD", "CVX", "MRK", "ABBV", "PEP", "AVGO", "KO", "PFE", "TMO", "COST", "CSCO", "MCD", "DIS",
@@ -643,22 +581,15 @@ async def get_all_stocks(page: int = 1, limit: int = 10):
             res = future.result()
             if res:
                 results.append(res)
-                
-    # Restore original order
+
     results_map = {r["symbol"]: r for r in results}
     ordered_results = [results_map[sym] for sym in paginated_symbols if sym in results_map]
 
-    return {
-        "data": ordered_results,
-        "total": total,
-        "page": page,
-        "pages": pages
-    }
+    return {"data": ordered_results, "total": total, "page": page, "pages": pages}
 
 
 @router.get("/search/detailed")
 async def search_stocks_detailed(q: str):
-    """Frontend expects StockQuote[]."""
     q = (q or "").strip()
     if not q:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -675,10 +606,11 @@ async def search_stocks_detailed(q: str):
             quote_type = item.get("quoteType", "")
             if sym and quote_type in ["EQUITY", "ETF"]:
                 symbols.append(sym)
-                if len(symbols) >= 10:  # Limit concurrent fetches
+                if len(symbols) >= 10:
                     break
-        
+
         results = []
+
         def fetch_quote_detailed(sym):
             try:
                 t = _ticker(sym)
@@ -712,7 +644,6 @@ async def search_stocks_detailed(q: str):
 
 @router.get("/{symbol}/historical")
 async def get_historical(symbol: str = Depends(sanitise_symbol_param), time_range: str = "1M"):
-    """Frontend expects: GET /stocks/{symbol}/historical?range=1M returning HistoricalDataPoint[]."""
     time_range = (time_range or "1M").upper().strip()
     if time_range not in TIME_RANGE_TO_V8:
         raise HTTPException(status_code=400, detail=f"Invalid range: {time_range}")
@@ -736,18 +667,13 @@ async def get_historical(symbol: str = Depends(sanitise_symbol_param), time_rang
             detail="Yahoo Finance returned empty historical data. Try again later.",
         )
 
-<<<<<<< Updated upstream
-    return normalise_historical(out)
-=======
-    cache_set(hist_key, out, ttl=TTL_HISTORICAL)
-    return out
->>>>>>> Stashed changes
+    result = normalise_historical(out)
+    cache_set(hist_key, result, ttl=TTL_HISTORICAL)
+    return result
 
 
 @router.get("/{symbol}/indicators")
 async def get_indicators(symbol: str = Depends(sanitise_symbol_param)):
-    """Frontend expects TechnicalIndicators."""
-
     ind_key = make_key("indicators", symbol)
     cached_ind = cache_get(ind_key)
     if cached_ind is not None:
@@ -773,34 +699,20 @@ async def get_indicators(symbol: str = Depends(sanitise_symbol_param)):
     rsi   = _compute_rsi(close)
     macd  = _compute_macd(close)
 
-<<<<<<< Updated upstream
     raw_indicators = {
-=======
-    indicators_result = {
->>>>>>> Stashed changes
         "symbol": symbol,
         "ma50":  _safe_float(ma50,  0.0),
         "ma200": _safe_float(ma200, 0.0),
         "rsi":   rsi,
         "macd":  macd,
     }
-<<<<<<< Updated upstream
-    return normalise_indicators(raw_indicators, symbol)
-=======
-    cache_set(ind_key, indicators_result, ttl=TTL_HISTORICAL)
-    return indicators_result
->>>>>>> Stashed changes
+    result = normalise_indicators(raw_indicators, symbol)
+    cache_set(ind_key, result, ttl=TTL_HISTORICAL)
+    return result
 
 
 @router.get("/{symbol}/news")
 async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
-    """Frontend expects NewsArticle[].
-
-    For MVP, we use yfinance's Ticker.news when available. Later you can swap this
-    to Twitter/X, NewsAPI, AlphaVantage news, etc.
-    """
-<<<<<<< Updated upstream
-=======
     symbol = symbol.upper().strip()
 
     news_key = make_key("news", symbol)
@@ -808,7 +720,6 @@ async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
     if cached_news is not None:
         return cached_news
 
->>>>>>> Stashed changes
     t = _ticker(symbol)
     items = getattr(t, "news", None) or []
 
@@ -816,9 +727,9 @@ async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
     for item in items[:20]:
         ts = item.get("providerPublishTime")
         published = (
-            datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat() if ts else datetime.now(timezone.utc).isoformat()
+            datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+            if ts else datetime.now(timezone.utc).isoformat()
         )
-<<<<<<< Updated upstream
         raw_article = {
             "id": str(item.get("uuid") or item.get("id") or item.get("link") or len(out)),
             "title": item.get("title") or "",
@@ -832,40 +743,20 @@ async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
             "sentiment": "neutral",
         }
         out.append(normalise_news_article(raw_article, len(out)))
-=======
-        out.append(
-            {
-                "id": str(item.get("uuid") or item.get("id") or item.get("link") or len(out)),
-                "title": item.get("title") or "",
-                "source": item.get("publisher") or "Yahoo Finance",
-                "url": item.get("link") or "",
-                "publishedAt": published,
-                "summary": item.get("summary"),
-                "imageUrl": (item.get("thumbnail", {}) or {}).get("resolutions", [{}])[-1].get("url")
-                if isinstance(item.get("thumbnail"), dict)
-                else None,
-                "sentiment": "neutral",
-            }
-        )
+
     cache_set(news_key, out, ttl=TTL_NEWS)
->>>>>>> Stashed changes
     return out
 
 
 @router.post("/compare")
 async def compare_stocks(payload: dict = Body(...)):
-    """Frontend expects ComparisonData.
-
-    POST /stocks/compare { symbols: string[] }
-    """
     from app.api.utils.data_cleaner import clean_symbol as _clean_sym, clean_float as _cf, clean_price as _cp, clean_volume as _cv
     symbols = payload.get("symbols")
     if not isinstance(symbols, list) or not symbols:
         raise HTTPException(status_code=400, detail="symbols must be a non-empty array")
 
-    # Sanitise and deduplicate symbols; reject obviously invalid ones
     cleaned_symbols: List[str] = []
-    for s in symbols[:10]:  # hard cap at 10
+    for s in symbols[:10]:
         sym = _clean_sym(str(s))
         if sym and sym not in cleaned_symbols:
             cleaned_symbols.append(sym)
@@ -906,20 +797,8 @@ async def compare_stocks(payload: dict = Body(...)):
     return {"symbols": cleaned_symbols, "data": data}
 
 
-# -----------------------------
-# ML integration hook (stub)
-# -----------------------------
-
-
 @router.get("/{symbol}/predict")
 async def predict_future_price(symbol: str = Depends(sanitise_symbol_param), horizon_days: int = 7):
-    """Optional endpoint for later ML integration.
-
-    You can replace the dummy logic with:
-    - a local model call
-    - a separate ML microservice
-    - or a queue job (Celery) that stores predictions.
-    """
     from app.api.utils.data_cleaner import clean_price as _cp, clean_int as _ci
     qp = _build_quote_parts(symbol)
     return {

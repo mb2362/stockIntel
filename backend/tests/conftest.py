@@ -41,6 +41,10 @@ else:
     import fastapi.middleware.cors as _fmc
     sys.modules.setdefault("fastapi.middleware.cors", _fmc)
 
+    # ── httpx: use real package (starlette.testclient needs httpx.Response) ───
+    import httpx as _httpx
+    sys.modules["httpx"] = _httpx
+
     # ── sqlalchemy ─────────────────────────────────────────────────────────────
     _N = lambda *a, **kw: None
     _stub("sqlalchemy", Column=_N, Integer=type("I", (), {}), String=type("S", (), {}),
@@ -70,19 +74,6 @@ else:
 
     # ── dotenv ─────────────────────────────────────────────────────────────────
     _stub("dotenv", load_dotenv=lambda *a, **kw: None)
-
-    # ── httpx ──────────────────────────────────────────────────────────────────
-    class _AsyncClient:
-        def __init__(self, **kw): pass
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): pass
-        async def get(self, url, **kw):
-            r = mock.MagicMock()
-            r.status_code = 200
-            r.json.return_value = {"results": []}
-            return r
-
-    _stub("httpx", AsyncClient=_AsyncClient)
 
     # ── vaderSentiment ─────────────────────────────────────────────────────────
     class _SIA:
@@ -172,9 +163,16 @@ else:
         user_id = _sentinel; stock_id = _sentinel
         def __init__(self, **kw): self.__dict__.update(kw)
 
+    def _fake_get_db():
+        db = mock.MagicMock()
+        try:
+            yield db
+        finally:
+            pass
+
     _stub("app.database.database",
-          Base=type("Base", (), {"metadata": mock.MagicMock()}),
-          get_db=mock.MagicMock(), engine=mock.MagicMock())
+        Base=type("Base", (), {"metadata": mock.MagicMock()}),
+        get_db=_fake_get_db, engine=mock.MagicMock())
     _stub("app.database.models", Stock=_StockM, HistoricalStockData=_HistM,
           User=_UserM, Watchlist=_WLM, Portfolio=_WLM, News=_WLM)
     _stub("app.database.crud")
