@@ -15,7 +15,6 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 import time
 from app.database import crud, database, models
-<<<<<<< Updated upstream
 from app.api.utils.data_cleaner import (
     normalise_quote, normalise_stock_detail, normalise_historical,
     normalise_indicators, normalise_news_article, normalise_search_result,
@@ -23,12 +22,10 @@ from app.api.utils.data_cleaner import (
     clean_symbol, clean_str, clean_market_cap, clean_volume,
 )
 from app.api.security.middleware import sanitise_symbol_param
-=======
 from app.cache import (
     cache_get, cache_set, make_key,
     TTL_QUOTE, TTL_HISTORICAL, TTL_INFO, TTL_NEWS, TTL_OVERVIEW,
 )
->>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
@@ -491,13 +488,8 @@ async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
     change = qp.price - qp.prev_close
     change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
 
-<<<<<<< Updated upstream
     raw = {
         "symbol": symbol.upper(),
-=======
-    result = {
-        "symbol": symbol,
->>>>>>> Stashed changes
         "name": meta.get("shortName") or meta.get("symbol") or symbol,
         "price": qp.price,
         "change": change,
@@ -516,12 +508,9 @@ async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
         "dividendYield": meta.get("dividendYield"),
         "beta": meta.get("beta"),
     }
-<<<<<<< Updated upstream
-    return normalise_quote(raw, symbol)
-=======
+    result = normalise_quote(raw, symbol)
     cache_set(cache_key, result, ttl=TTL_QUOTE)
     return result
->>>>>>> Stashed changes
 
 
 @router.get("/{symbol}/info")
@@ -736,12 +725,10 @@ async def get_historical(symbol: str = Depends(sanitise_symbol_param), time_rang
             detail="Yahoo Finance returned empty historical data. Try again later.",
         )
 
-<<<<<<< Updated upstream
-    return normalise_historical(out)
-=======
+    out = normalise_historical(out)
+
     cache_set(hist_key, out, ttl=TTL_HISTORICAL)
     return out
->>>>>>> Stashed changes
 
 
 @router.get("/{symbol}/indicators")
@@ -773,23 +760,16 @@ async def get_indicators(symbol: str = Depends(sanitise_symbol_param)):
     rsi   = _compute_rsi(close)
     macd  = _compute_macd(close)
 
-<<<<<<< Updated upstream
     raw_indicators = {
-=======
-    indicators_result = {
->>>>>>> Stashed changes
         "symbol": symbol,
         "ma50":  _safe_float(ma50,  0.0),
         "ma200": _safe_float(ma200, 0.0),
         "rsi":   rsi,
         "macd":  macd,
     }
-<<<<<<< Updated upstream
-    return normalise_indicators(raw_indicators, symbol)
-=======
-    cache_set(ind_key, indicators_result, ttl=TTL_HISTORICAL)
-    return indicators_result
->>>>>>> Stashed changes
+    result = normalise_indicators(raw_indicators, symbol)
+    cache_set(ind_key, result, ttl=TTL_HISTORICAL)
+    return result
 
 
 @router.get("/{symbol}/news")
@@ -799,8 +779,6 @@ async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
     For MVP, we use yfinance's Ticker.news when available. Later you can swap this
     to Twitter/X, NewsAPI, AlphaVantage news, etc.
     """
-<<<<<<< Updated upstream
-=======
     symbol = symbol.upper().strip()
 
     news_key = make_key("news", symbol)
@@ -808,7 +786,6 @@ async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
     if cached_news is not None:
         return cached_news
 
->>>>>>> Stashed changes
     t = _ticker(symbol)
     items = getattr(t, "news", None) or []
 
@@ -818,7 +795,6 @@ async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
         published = (
             datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat() if ts else datetime.now(timezone.utc).isoformat()
         )
-<<<<<<< Updated upstream
         raw_article = {
             "id": str(item.get("uuid") or item.get("id") or item.get("link") or len(out)),
             "title": item.get("title") or "",
@@ -832,23 +808,7 @@ async def get_stock_news(symbol: str = Depends(sanitise_symbol_param)):
             "sentiment": "neutral",
         }
         out.append(normalise_news_article(raw_article, len(out)))
-=======
-        out.append(
-            {
-                "id": str(item.get("uuid") or item.get("id") or item.get("link") or len(out)),
-                "title": item.get("title") or "",
-                "source": item.get("publisher") or "Yahoo Finance",
-                "url": item.get("link") or "",
-                "publishedAt": published,
-                "summary": item.get("summary"),
-                "imageUrl": (item.get("thumbnail", {}) or {}).get("resolutions", [{}])[-1].get("url")
-                if isinstance(item.get("thumbnail"), dict)
-                else None,
-                "sentiment": "neutral",
-            }
-        )
     cache_set(news_key, out, ttl=TTL_NEWS)
->>>>>>> Stashed changes
     return out
 
 
