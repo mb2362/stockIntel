@@ -9,7 +9,7 @@ const Landing = React.lazy(() => import('./pages/Landing'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const StockDetails = React.lazy(() => import('./pages/StockDetails'));
 const Watchlist = React.lazy(() => import('./pages/Watchlist'));
-const Comparison = React.lazy(() => import('./pages/Comparison'));
+const Predict = React.lazy(() => import('./pages/Predict'));
 const Analytics = React.lazy(() => import('./pages/Analytics'));
 const StockList = React.lazy(() => import('./pages/StockList'));
 
@@ -36,7 +36,7 @@ function App() {
                 <Route path="stocks" element={<StockList />} />
                 <Route path="stock/:symbol" element={<StockDetails />} />
                 <Route path="watchlist" element={<Watchlist />} />
-                <Route path="comparison" element={<Comparison />} />
+                <Route path="predict" element={<Predict />} />
                 <Route path="analytics" element={<Analytics />} />
               </Route>
 

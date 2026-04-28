@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, BarChart3, Bell, Shield, Zap, LineChart } from 'lucide-react';
+import { TrendingUp, BarChart3, Bell, Shield, Zap, LineChart, Sparkles } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { useEffect, useState } from 'react';
 
@@ -72,16 +72,16 @@ export default function Landing() {
             color: 'text-yellow-500'
         },
         {
-            icon: LineChart,
-            title: 'Stock Comparison',
-            description: 'Compare multiple stocks side-by-side to make informed decisions.',
+            icon: Sparkles,
+            title: 'Price Prediction',
+            description: 'Harness the power of AI to predict next-day closing prices.',
             color: 'text-indigo-500'
         }
     ];
 
     const stats = [
-        { value: '10K+', label: 'Active Users' },
-        { value: '50K+', label: 'Stocks Tracked' },
+        { value: '63%', label: 'Accuracy' },
+        { value: '100+', label: 'Stocks Tracked' },
         { value: '99.9%', label: 'Uptime' },
         { value: '24/7', label: 'Support' }
     ];
@@ -165,7 +165,7 @@ export default function Landing() {
                                 onClick={() => navigate('/dashboard')}
                                 className="text-lg px-8 py-4"
                             >
-                                Get Started Free
+                                Get Started
                             </Button>
                             <Button
                                 size="lg"

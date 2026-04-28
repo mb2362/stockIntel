@@ -1,0 +1,15 @@
+[run]
+omit =
+    app/ml/*
+    app/database/database.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    except Exception:
+    except:
+    raise NotImplementedError
+
+show_missing = True
+skip_covered = True

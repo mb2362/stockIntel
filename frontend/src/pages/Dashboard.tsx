@@ -166,13 +166,13 @@ export default function Dashboard() {
 
                     <Card
                         className="cursor-pointer hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-br from-success-50 to-success-100 dark:from-success-900 dark:to-success-800"
-                        onClick={() => navigate('/app/comparison')}
+                        onClick={() => navigate('/app/predict')}
                     >
                         <h3 className="font-semibold text-lg text-success-900 dark:text-success-100">
-                            Compare Stocks
+                            Predict Prices
                         </h3>
                         <p className="text-sm text-success-700 dark:text-success-300 mt-1">
-                            Analyze side-by-side
+                            AI-Powered Forecasting
                         </p>
                     </Card>
                 </div>

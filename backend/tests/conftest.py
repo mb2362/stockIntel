@@ -71,6 +71,27 @@ else:
     # ── dotenv ─────────────────────────────────────────────────────────────────
     _stub("dotenv", load_dotenv=lambda *a, **kw: None)
 
+    # ── httpx ──────────────────────────────────────────────────────────────────
+    class _AsyncClient:
+        def __init__(self, **kw): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+        async def get(self, url, **kw):
+            r = mock.MagicMock()
+            r.status_code = 200
+            r.json.return_value = {"results": []}
+            return r
+
+    _stub("httpx", AsyncClient=_AsyncClient)
+
+    # ── vaderSentiment ─────────────────────────────────────────────────────────
+    class _SIA:
+        def polarity_scores(self, text):
+            return {"compound": 0.0, "pos": 0.0, "neu": 1.0, "neg": 0.0}
+
+    _stub("vaderSentiment")
+    _stub("vaderSentiment.vaderSentiment", SentimentIntensityAnalyzer=_SIA)
+
     # ── requests ───────────────────────────────────────────────────────────────
     class _Response:
         status_code = 200
