@@ -9,6 +9,14 @@ from fastapi import APIRouter, HTTPException
 import time
 
 from app.api.endpoints.stocks import _build_quote_parts, _get_info_best_effort, _ticker, _yahoo_quote
+<<<<<<< Updated upstream
+from app.api.utils.data_cleaner import (
+    normalise_market_index, normalise_trending_stock, normalise_quote,
+    clean_float, clean_volume, clean_market_cap, clean_symbol, clean_str,
+)
+=======
+from app.cache import cache_get, cache_set, make_key, TTL_OVERVIEW, TTL_QUOTE
+>>>>>>> Stashed changes
 
 router = APIRouter(prefix="/market")
 
@@ -83,16 +91,22 @@ def _quote_basic(symbol: str) -> dict:
 @router.get("/overview")
 async def get_market_overview():
     """Matches frontend MarketOverview type."""
+    ov_key = make_key("market_overview")
+    cached_ov = cache_get(ov_key)
+    if cached_ov is not None:
+        return cached_ov
+
     def fetch_index(idx):
         try:
             q = _quote_basic(idx["symbol"])
-            return {
+            raw = {
                 "symbol": idx["symbol"],
                 "name": idx["name"],
                 "value": q["price"],
                 "change": q["change"],
                 "changePercent": q["changePercent"],
             }
+            return normalise_market_index(raw)
         except Exception:
             return None
 
@@ -106,11 +120,13 @@ async def get_market_overview():
     # Simple market status heuristic (good enough for MVP)
     market_status = "open"  # frontend expects one of open/closed/pre-market/after-hours
 
-    return {
+    result = {
         "indices": indices,
         "marketStatus": market_status,
         "lastUpdated": datetime.now(timezone.utc).isoformat(),
     }
+    cache_set(ov_key, result, ttl=TTL_OVERVIEW)
+    return result
 
 
 @router.get("/trending")
@@ -123,13 +139,14 @@ async def get_trending_stocks():
     def fetch_trending(symbol):
         try:
             q = _quote_basic(symbol)
-            return {
+            raw = {
                 "symbol": symbol,
                 "name": q["name"],
                 "price": q["price"],
                 "changePercent": q["changePercent"],
                 "volume": q["volume"],
             }
+            return normalise_trending_stock(raw)
         except Exception:
             return None
 
@@ -153,13 +170,16 @@ GAINER_LOSER_SYMBOLS = [
 def _fetch_gainer_loser(sym):
     try:
         q = _quote_basic(sym)
-        return {
+        raw = {
             "symbol": sym,
             "name": q["name"],
             "price": q["price"],
             "change": q["change"],
             "changePercent": q["changePercent"],
             "volume": q["volume"],
+        }
+        return normalise_trending_stock({**raw, "changePercent": raw["changePercent"]}) | {
+            "change": clean_float(raw["change"]),
         }
     except Exception:
         return None

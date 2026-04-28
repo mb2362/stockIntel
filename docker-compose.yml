@@ -3,9 +3,9 @@ services:
     image: postgres:16
     container_name: stock_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: stockmarket
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=stockmarket
     ports:
       - "5432:5432"
     volumes:
@@ -52,13 +52,6 @@ services:
       - ./frontend:/app
       - /app/node_modules
 
-  # ── Test service ────────────────────────────────────────────────────────────
-  # Runs the full pytest suite with coverage. No DB or network required.
-  #
-  # Usage (from project root):
-  #   docker compose run --rm test
-  #   docker compose run --rm test pytest tests/test_utils.py -v
-  #   docker compose run --rm test pytest tests/ --cov=app --cov-report=html
   test:
     build:
       context: ./backend
@@ -68,9 +61,7 @@ services:
       SECRET_KEY: test-secret-key-for-ci
       DATABASE_URL: "sqlite:///:memory:"
     volumes:
-      # Mount source live so you don't need to rebuild on every code change
       - ./backend:/app
-    # No depends_on: tests are fully offline – no DB or API needed
 
 volumes:
   postgres_data:

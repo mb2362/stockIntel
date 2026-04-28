@@ -14,6 +14,37 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 stocks = importlib.import_module("app.api.endpoints.stocks")
 HTTPException = sys.modules["fastapi"].HTTPException
 
+# Patch cache_get in the stocks module to always return None (cache miss).
+# This is needed because the stocks module imports cache_get at load time and
+# holds a reference to the _fallback_store singleton; cross-test contamination
+# from other test files can leave stale entries that setUp can't easily clear.
+_cache_get_patcher = None
+
+def _flush_cache():
+    """Clear ALL cache stores — including any old instances stocks may reference."""
+    # Strategy: find _fallback_store via the __globals__ of the real cache_set
+    # function that stocks imported. This works even if app.cache was reloaded.
+    flushed = set()
+    for fn_name in ("cache_set", "cache_get", "cache_delete"):
+        fn = stocks.__dict__.get(fn_name)
+        if fn and hasattr(fn, "__globals__"):
+            store = fn.__globals__.get("_fallback_store")
+            if store is not None and id(store) not in flushed:
+                try:
+                    store.flushdb()
+                    flushed.add(id(store))
+                except Exception:
+                    pass
+
+    # Also flush the currently-imported app.cache module's store
+    try:
+        import app.cache as _cm
+        if id(_cm._fallback_store) not in flushed:
+            _cm._fallback_store.flushdb()
+            flushed.add(id(_cm._fallback_store))
+    except Exception:
+        pass
+
 
 def _run(coro):
     import asyncio
@@ -151,7 +182,14 @@ class TestYahooSummary(unittest.TestCase):
 
 class TestQuoteCache(unittest.TestCase):
     def setUp(self):
+        # Start patcher FIRST so cache_get is mocked during flush and test body
+        self._cache_patcher = mock.patch.object(stocks, "cache_get", return_value=None)
+        self._cache_patcher.start()
         stocks._quote_cache.clear()
+        _flush_cache()
+
+    def tearDown(self):
+        self._cache_patcher.stop()
 
     def test_cache_hit_avoids_second_call(self):
         qp = _qp()
@@ -194,7 +232,14 @@ class TestQuoteCache(unittest.TestCase):
 # ── Build quote parts ─────────────────────────────────────────────────────────
 
 class TestBuildQuoteParts(unittest.TestCase):
-    def setUp(self): stocks._quote_cache.clear()
+    def setUp(self):
+        self._cache_patcher = mock.patch.object(stocks, "cache_get", return_value=None)
+        self._cache_patcher.start()
+        stocks._quote_cache.clear()
+        _flush_cache()
+
+    def tearDown(self):
+        self._cache_patcher.stop()
 
     def test_normal_path(self):
         meta = {"regularMarketPrice": 150.0, "chartPreviousClose": 148.0,
@@ -296,6 +341,15 @@ class TestSearchDetailed(unittest.TestCase):
 # ── Quote endpoint ────────────────────────────────────────────────────────────
 
 class TestGetStockQuote(unittest.TestCase):
+    def setUp(self):
+        self._cache_patcher = mock.patch.object(stocks, "cache_get", return_value=None)
+        self._cache_patcher.start()
+        stocks._quote_cache.clear()
+        _flush_cache()
+
+    def tearDown(self):
+        self._cache_patcher.stop()
+
     def _p(self, price=155.0, prev=150.0, meta=None):
         return (mock.patch.object(stocks, "_build_quote_parts", return_value=_qp(price, prev)),
                 mock.patch.object(stocks, "_yahoo_quote", return_value=meta or {"shortName": "ACME"}))
@@ -333,6 +387,14 @@ class TestGetStockQuote(unittest.TestCase):
 # ── Historical endpoint ───────────────────────────────────────────────────────
 
 class TestGetHistorical(unittest.TestCase):
+    def setUp(self):
+        self._cache_patcher = mock.patch.object(stocks, "cache_get", return_value=None)
+        self._cache_patcher.start()
+        _flush_cache()
+
+    def tearDown(self):
+        self._cache_patcher.stop()
+
     def test_invalid_range_raises_400(self):
         with self.assertRaises(HTTPException) as ctx:
             _run(stocks.get_historical("AAPL", time_range="INVALID"))
@@ -369,6 +431,14 @@ class TestGetHistorical(unittest.TestCase):
 # ── Indicators endpoint ───────────────────────────────────────────────────────
 
 class TestGetIndicators(unittest.TestCase):
+    def setUp(self):
+        self._cache_patcher = mock.patch.object(stocks, "cache_get", return_value=None)
+        self._cache_patcher.start()
+        _flush_cache()
+
+    def tearDown(self):
+        self._cache_patcher.stop()
+
     def _bars(self, n=250):
         return [{"date": f"2024-01-{i+1:02d}", "open": 100.0+i*0.1,
                  "high": 102.0+i*0.1, "low": 99.0+i*0.1,
