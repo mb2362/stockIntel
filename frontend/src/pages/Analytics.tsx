@@ -20,6 +20,7 @@ const TICKERS = [
 
 const VISIBLE_COUNT = 10;
 const RANGES = ["1D", "1W"] as const;
+const NEWS_PER_PAGE = 5;
 type Range = typeof RANGES[number];
 const API_BASE = "http://localhost:8001/api/v1";
 
@@ -88,15 +89,73 @@ function NewsCard({ item }: { item: NewsItem }) {
 }
 
 function NewsList({ news, loading, error }: { news: NewsItem[]; loading: boolean; error: string | null }) {
+    const [page, setPage] = useState(1);
+
+    // Reset to page 1 whenever news changes (ticker/range switch)
+    useEffect(() => { setPage(1); }, [news]);
+
     if (loading) return <LoadingSpinner />;
     if (error)   return <ErrorMessage error={error} />;
     if (news.length === 0) return <p className="text-gray-500 text-center">No news available</p>;
 
+    const totalPages = Math.ceil(news.length / NEWS_PER_PAGE);
+    const paginated  = news.slice((page - 1) * NEWS_PER_PAGE, page * NEWS_PER_PAGE);
+
     return (
         <div className="space-y-4">
-            {news.map((item, index) => (
+            {paginated.map((item, index) => (
                 <NewsCard key={index} item={item} />
             ))}
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Page {page} of {totalPages} · {news.length} articles
+                    </p>
+                    <div className="flex gap-1">
+                        {/* Prev */}
+                        <button
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                            className="px-3 py-1 rounded-md text-sm font-medium transition
+                                bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+                                hover:bg-gray-200 dark:hover:bg-gray-600
+                                disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            ← Prev
+                        </button>
+
+                        {/* Page numbers */}
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => setPage(p)}
+                                className={clsx(
+                                    "px-3 py-1 rounded-md text-sm font-medium transition",
+                                    p === page
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                )}
+                            >
+                                {p}
+                            </button>
+                        ))}
+
+                        {/* Next */}
+                        <button
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={page === totalPages}
+                            className="px-3 py-1 rounded-md text-sm font-medium transition
+                                bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+                                hover:bg-gray-200 dark:hover:bg-gray-600
+                                disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Next →
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

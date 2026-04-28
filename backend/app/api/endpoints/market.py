@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import concurrent.futures
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time as dtime
+import zoneinfo
 
 import yfinance as yf
 from fastapi import APIRouter, HTTPException
@@ -16,29 +17,51 @@ router = APIRouter(prefix="/market")
 MAJOR_INDICES = [
     {"symbol": "^GSPC", "name": "S&P 500"},
     {"symbol": "^IXIC", "name": "NASDAQ"},
-    {"symbol": "^DJI", "name": "Dow Jones"},
-    {"symbol": "^RUT", "name": "Russell 2000"},
-    {"symbol": "^VIX", "name": "Volatility Index"},
+    {"symbol": "^DJI",  "name": "Dow Jones"},
+    {"symbol": "^RUT",  "name": "Russell 2000"},
+    {"symbol": "^VIX",  "name": "Volatility Index"},
     {"symbol": "^FTSE", "name": "FTSE 100"},
     {"symbol": "^N225", "name": "Nikkei 225"},
-    {"symbol": "^HSI", "name": "Hang Seng"},
-    {"symbol": "^GDAXI", "name": "DAX"},
+    {"symbol": "^HSI",  "name": "Hang Seng"},
+    {"symbol": "^GDAXI","name": "DAX"},
 ]
 
 POPULAR_STOCKS = [
-    "AAPL",
-    "MSFT",
-    "GOOGL",
-    "AMZN",
-    "TSLA",
-    "META",
-    "NVDA",
-    "JPM",
-    "V",
-    "WMT",
+    "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA",
+    "META", "NVDA", "JPM",   "V",    "WMT",
 ]
 
 _quote_cache = {}
+
+
+def _get_market_status() -> str:
+    """Return real-time US market status based on Eastern Time."""
+    try:
+        now = datetime.now(zoneinfo.ZoneInfo("America/New_York"))
+    except Exception:
+        # Fallback if zoneinfo not available
+        import datetime as _dt
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+
+    weekday = now.weekday()  # 0=Mon, 6=Sun
+    current_time = now.time()
+
+    # Weekend — always closed
+    if weekday >= 5:
+        return "closed"
+
+    pre_market_open  = dtime(4,  0)
+    market_open      = dtime(9, 30)
+    market_close     = dtime(16,  0)
+    after_hours_end  = dtime(20,  0)
+
+    if current_time < pre_market_open or current_time >= after_hours_end:
+        return "closed"
+    if current_time < market_open:
+        return "pre-market"
+    if current_time >= market_close:
+        return "after-hours"
+    return "open"
 
 
 def _quote_basic(symbol: str) -> dict:
@@ -47,10 +70,9 @@ def _quote_basic(symbol: str) -> dict:
     cached = _quote_cache.get(symbol)
     if cached and (now - cached["time"] < 15):
         return cached["data"]
-        
+
     try:
         qp = _build_quote_parts(symbol)
-        # Use the v8 chart meta for name (avoids yfinance crumb/rate-limit)
         try:
             meta = _yahoo_quote(symbol)
             name = meta.get("shortName") or meta.get("symbol") or symbol
@@ -58,7 +80,7 @@ def _quote_basic(symbol: str) -> dict:
         except Exception:
             name = symbol
             market_cap = 0.0
-        
+
         change = qp.price - qp.prev_close
         change_pct = (change / qp.prev_close * 100.0) if qp.prev_close else 0.0
 
@@ -73,8 +95,7 @@ def _quote_basic(symbol: str) -> dict:
         }
         _quote_cache[symbol] = {"time": time.time(), "data": result}
         return result
-    except Exception as e:
-        # Return stale cache if available rather than failing hard
+    except Exception:
         if cached and cached.get("data"):
             return cached["data"]
         raise HTTPException(status_code=503, detail=f"Market data unavailable for {symbol}")
@@ -103,23 +124,16 @@ async def get_market_overview():
             if r is not None:
                 indices.append(r)
 
-    # Simple market status heuristic (good enough for MVP)
-    market_status = "open"  # frontend expects one of open/closed/pre-market/after-hours
-
     return {
         "indices": indices,
-        "marketStatus": market_status,
+        "marketStatus": _get_market_status(),
         "lastUpdated": datetime.now(timezone.utc).isoformat(),
     }
 
 
 @router.get("/trending")
 async def get_trending_stocks():
-    """Matches frontend TrendingStock type.
-
-    Yahoo does not provide a stable free 'trending' endpoint via yfinance, so we
-    approximate using a fixed list of popular tickers.
-    """
+    """Matches frontend TrendingStock type."""
     def fetch_trending(symbol):
         try:
             q = _quote_basic(symbol)
@@ -139,14 +153,13 @@ async def get_trending_stocks():
         for r in results:
             if r is not None:
                 out.append(r)
-    
     return out
 
 
 GAINER_LOSER_SYMBOLS = [
-    "NVDA", "TSLA", "AMD", "META", "AAPL",
-    "AMZN", "MSFT", "GOOGL", "NFLX", "INTC",
-    "JPM", "V", "WMT", "BABA", "PLTR",
+    "NVDA", "TSLA", "AMD",   "META",  "AAPL",
+    "AMZN", "MSFT", "GOOGL", "NFLX",  "INTC",
+    "JPM",  "V",    "WMT",   "BABA",  "PLTR",
 ]
 
 
@@ -167,27 +180,23 @@ def _fetch_gainer_loser(sym):
 
 @router.get("/gainers")
 async def get_top_gainers():
-    """Returns top gaining stocks. Matches frontend TrendingStock type."""
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         r_list = executor.map(_fetch_gainer_loser, GAINER_LOSER_SYMBOLS)
         for r in r_list:
             if r is not None and r["changePercent"] > 0:
                 results.append(r)
-
     results.sort(key=lambda x: x["changePercent"], reverse=True)
     return results[:5]
 
 
 @router.get("/losers")
 async def get_top_losers():
-    """Returns top losing stocks. Matches frontend TrendingStock type."""
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         r_list = executor.map(_fetch_gainer_loser, GAINER_LOSER_SYMBOLS)
         for r in r_list:
             if r is not None and r["changePercent"] < 0:
                 results.append(r)
-
     results.sort(key=lambda x: x["changePercent"])
     return results[:5]

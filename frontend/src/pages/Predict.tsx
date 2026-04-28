@@ -296,7 +296,7 @@ export default function Predict() {
                         Next-Day Price Predictor
                     </h1>
                     <p className="text-lg sm:text-xl text-indigo-100 max-w-2xl leading-relaxed">
-                        Harness advanced machine learning — trained on 50 stocks with live news sentiment — to predict tomorrow's closing price.
+                        Harness advanced machine learning, trained on 50 stocks with live news sentiment to predict tomorrow's closing price.
                     </p>
                     <div className="mt-4 flex items-center gap-2 text-indigo-200 text-sm">
                         <Newspaper className="w-4 h-4" />
