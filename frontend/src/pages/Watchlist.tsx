@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useWatchlist } from '../context/WatchlistContext';
 import { Card } from '../components/common/Card';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { formatPrice, formatPercentage } from '../utils/formatters';
-import { Trash2, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -13,15 +13,26 @@ export default function Watchlist() {
     const { watchlist, loading, removeStock } = useWatchlist();
     const navigate = useNavigate();
     const [currentPage, setCurrentPage] = useState(1);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // Reset to page 1 whenever the watchlist length changes (add/remove)
+    // Reset to page 1 whenever the watchlist length or search changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [watchlist.length]);
+    }, [watchlist.length, searchQuery]);
 
-    const totalPages = Math.max(1, Math.ceil(watchlist.length / PAGE_SIZE));
+    // Filter watchlist based on search query
+    const filteredWatchlist = useMemo(() => {
+        if (!searchQuery.trim()) return watchlist;
+        const q = searchQuery.toLowerCase();
+        return watchlist.filter(stock =>
+            stock.symbol.toLowerCase().includes(q) ||
+            stock.name.toLowerCase().includes(q)
+        );
+    }, [watchlist, searchQuery]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredWatchlist.length / PAGE_SIZE));
     const startIndex = (currentPage - 1) * PAGE_SIZE;
-    const pageItems = watchlist.slice(startIndex, startIndex + PAGE_SIZE);
+    const pageItems = filteredWatchlist.slice(startIndex, startIndex + PAGE_SIZE);
 
     const handleRemove = async (symbol: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -39,7 +50,7 @@ export default function Watchlist() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                         My Watchlist
@@ -49,12 +60,36 @@ export default function Watchlist() {
                     </p>
                 </div>
 
-                {/* Page indicator shown in header when list is long enough */}
-                {totalPages > 1 && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Page {currentPage} of {totalPages}
-                    </p>
-                )}
+                <div className="flex items-center gap-4">
+                    {/* Page indicator */}
+                    {totalPages > 1 && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                            Page {currentPage} of {totalPages}
+                        </p>
+                    )}
+
+                    {/* Search bar */}
+                    {watchlist.length > 0 && (
+                        <div className="relative w-full md:w-72">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search watchlist..."
+                                className="w-full pl-10 pr-9 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {watchlist.length === 0 ? (
@@ -66,6 +101,20 @@ export default function Watchlist() {
                         <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
                             Search for stocks and add them to your watchlist to track them here
                         </p>
+                    </div>
+                </Card>
+            ) : filteredWatchlist.length === 0 ? (
+                <Card>
+                    <div className="text-center py-12">
+                        <p className="text-gray-600 dark:text-gray-400 text-lg">
+                            No stocks found matching "{searchQuery}"
+                        </p>
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="text-primary-600 dark:text-primary-400 text-sm mt-2 hover:underline"
+                        >
+                            Clear search
+                        </button>
                     </div>
                 </Card>
             ) : (
@@ -122,7 +171,7 @@ export default function Watchlist() {
                         ))}
                     </div>
 
-                    {/* Pagination controls — only shown when needed */}
+                    {/* Pagination controls */}
                     {totalPages > 1 && (
                         <div className="flex items-center justify-between pt-2">
                             <button
@@ -139,7 +188,6 @@ export default function Watchlist() {
                                 Previous
                             </button>
 
-                            {/* Page number pills */}
                             <div className="flex items-center gap-1">
                                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                                     <button

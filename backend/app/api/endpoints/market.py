@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import concurrent.futures
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time as dtime
+import zoneinfo
 
 import yfinance as yf
 from fastapi import APIRouter, HTTPException
@@ -35,6 +36,36 @@ POPULAR_STOCKS = [
 ]
 
 _quote_cache = {}
+
+
+def _get_market_status() -> str:
+    """Return real-time US market status based on Eastern Time."""
+    try:
+        now = datetime.now(zoneinfo.ZoneInfo("America/New_York"))
+    except Exception:
+        # Fallback if zoneinfo not available
+        import datetime as _dt
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+
+    weekday = now.weekday()  # 0=Mon, 6=Sun
+    current_time = now.time()
+
+    # Weekend — always closed
+    if weekday >= 5:
+        return "closed"
+
+    pre_market_open  = dtime(4,  0)
+    market_open      = dtime(9, 30)
+    market_close     = dtime(16,  0)
+    after_hours_end  = dtime(20,  0)
+
+    if current_time < pre_market_open or current_time >= after_hours_end:
+        return "closed"
+    if current_time < market_open:
+        return "pre-market"
+    if current_time >= market_close:
+        return "after-hours"
+    return "open"
 
 
 def _quote_basic(symbol: str) -> dict:
@@ -139,9 +170,9 @@ async def get_trending_stocks():
 
 
 GAINER_LOSER_SYMBOLS = [
-    "NVDA", "TSLA", "AMD", "META", "AAPL",
-    "AMZN", "MSFT", "GOOGL", "NFLX", "INTC",
-    "JPM", "V", "WMT", "BABA", "PLTR",
+    "NVDA", "TSLA", "AMD",   "META",  "AAPL",
+    "AMZN", "MSFT", "GOOGL", "NFLX",  "INTC",
+    "JPM",  "V",    "WMT",   "BABA",  "PLTR",
 ]
 
 
