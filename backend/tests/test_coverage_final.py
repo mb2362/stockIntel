@@ -73,7 +73,7 @@ class TestPredictEndpoint(unittest.TestCase):
     def test_allowed_symbols_set(self):
         self.assertIn("AAPL", self.predict_mod.ALLOWED_SYMBOLS)
         self.assertIn("NVDA", self.predict_mod.ALLOWED_SYMBOLS)
-        self.assertEqual(len(self.predict_mod.ALLOWED_SYMBOLS), 10)
+        self.assertEqual(len(self.predict_mod.ALLOWED_SYMBOLS), 50)
 
     def test_get_prediction_valid_symbol(self):
         self.predictor_stub.predict.return_value = {
