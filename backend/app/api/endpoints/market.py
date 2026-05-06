@@ -37,15 +37,22 @@ POPULAR_STOCKS = [
 
 _quote_cache = {}
 
+try:
+    import pandas_market_calendars as mcal # type: ignore
+    _HAS_MARKET_CAL = True
+except ImportError:
+    _HAS_MARKET_CAL = False
 
 def _get_market_status() -> str:
     """Return real-time US market status based on Eastern Time."""
     try:
         now = datetime.now(zoneinfo.ZoneInfo("America/New_York"))
     except Exception:
-        # Fallback if zoneinfo not available
-        import datetime as _dt
-        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        # Fallback: use UTC with a fixed -5h offset (no DST — conservative fallback)
+        from datetime import timedelta
+        now = datetime.now(timezone.utc).astimezone(
+            timezone(timedelta(hours=-5))
+        )
 
     weekday = now.weekday()  # 0=Mon, 6=Sun
     current_time = now.time()
@@ -54,10 +61,18 @@ def _get_market_status() -> str:
     if weekday >= 5:
         return "closed"
 
-    pre_market_open  = dtime(4,  0)
-    market_open      = dtime(9, 30)
-    market_close     = dtime(16,  0)
-    after_hours_end  = dtime(20,  0)
+    # Holiday check (requires pandas_market_calendars)
+    if _HAS_MARKET_CAL:
+        nyse = mcal.get_calendar("NYSE")
+        today_str = now.strftime("%Y-%m-%d")
+        schedule = nyse.schedule(start_date=today_str, end_date=today_str)
+        if schedule.empty:
+            return "closed"  # Market holiday
+
+    pre_market_open = dtime(4,  0)
+    market_open     = dtime(9, 30)
+    market_close    = dtime(16,  0)
+    after_hours_end = dtime(20,  0)
 
     if current_time < pre_market_open or current_time >= after_hours_end:
         return "closed"
@@ -136,7 +151,7 @@ async def get_market_overview():
 
     result = {
         "indices": indices,
-        "marketStatus": "open",
+        "marketStatus": _get_market_status(),
         "lastUpdated": datetime.now(timezone.utc).isoformat(),
     }
     cache_set(ov_key, result, ttl=TTL_OVERVIEW)

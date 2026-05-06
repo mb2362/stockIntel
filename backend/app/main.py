@@ -31,7 +31,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # 2. Per-IP sliding-window rate limiter (60 req/min; exempt: /docs /redoc /)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
 
-# 3. CORS for local frontend dev (Vite :5173, CRA :3000)
+# 3. CORS for local frontend dev (Vite :5173, CRA :3001)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
