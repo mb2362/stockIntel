@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { usePaginatedStocks } from '../hooks/useStockData';
+import { usePaginatedStocks, useDetailedSearch } from '../hooks/useStockData';
 import { Card } from '../components/common/Card';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorMessage } from '../components/common/ErrorMessage';
@@ -20,24 +20,17 @@ export default function StockList() {
     const [page, setPage] = useState(1);
     const limit = 10;
 
-    const { data: paginatedData, loading, error, refetch } = usePaginatedStocks(page, limit, true);
+    const { data: paginatedData, loading: paginatedLoading, error: paginatedError, refetch: refetchPaginated } = usePaginatedStocks(page, limit, true);
+    const { data: searchResults, loading: searchLoading, error: searchError, refetch: refetchSearch } = useDetailedSearch(searchQuery);
 
     const isSearching = searchQuery.trim().length > 0;
 
     const displayStocks = useMemo(() => {
-        const sourceData = paginatedData?.data;
+        // Use server-side search results when searching, paginated data otherwise
+        const sourceData = isSearching ? searchResults : paginatedData?.data;
         if (!sourceData) return [];
 
         let result = [...sourceData];
-
-        // Client-side filtering
-        if (isSearching) {
-            const query = searchQuery.toLowerCase();
-            result = result.filter(stock =>
-                stock.symbol.toLowerCase().includes(query) ||
-                stock.name.toLowerCase().includes(query)
-            );
-        }
 
         // Sorting
         result.sort((a, b) => {
@@ -47,7 +40,11 @@ export default function StockList() {
         });
 
         return result;
-    }, [paginatedData, isSearching, searchQuery, sortConfig]);
+    }, [paginatedData, searchResults, isSearching, sortConfig]);
+
+    const loading = isSearching ? searchLoading : paginatedLoading;
+    const error = isSearching ? searchError : paginatedError;
+    const refetch = isSearching ? refetchSearch : refetchPaginated;
 
     const handleSort = (key: SortConfig['key']) => {
         setSortConfig(prev => ({
@@ -79,7 +76,7 @@ export default function StockList() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Filter stocks by symbol or name..."
+                            placeholder="Search all stocks by symbol or name..."
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                         />
                     </div>
@@ -172,7 +169,9 @@ export default function StockList() {
                                         <tr>
                                             <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                                                 {isSearching
-                                                    ? `No stocks found matching "${searchQuery}"`
+                                                    ? searchLoading
+                                                        ? 'Searching...'
+                                                        : `No stocks found matching "${searchQuery}"`
                                                     : 'No stocks available'}
                                             </td>
                                         </tr>
@@ -216,4 +215,4 @@ export default function StockList() {
             )}
         </div>
     );
-}
+}

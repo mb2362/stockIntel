@@ -438,6 +438,109 @@ async def get_top_losers():
     return results[:5]
 
 
+@router.get("/search/detailed")
+async def search_stocks_detailed(q: str):
+    q = (q or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    if not hasattr(yf, "Search"):
+        return []
+
+    try:
+        s = yf.Search(q)
+        quotes = getattr(s, "quotes", None) or []
+        symbols = []
+        for item in quotes:
+            sym = (item.get("symbol") or "").upper()
+            quote_type = item.get("quoteType", "")
+            if sym and quote_type in ["EQUITY", "ETF"]:
+                symbols.append(sym)
+                if len(symbols) >= 10:
+                    break
+
+        results = []
+
+        def fetch_quote_detailed(sym):
+            try:
+                t = _ticker(sym)
+                info = _get_info_best_effort(t)
+                qp = _build_quote_parts(sym)
+                change = qp.price - qp.prev_close
+                change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
+                raw = {
+                    "symbol": sym,
+                    "name": info.get("shortName") or info.get("longName") or sym,
+                    "price": qp.price, "change": change, "changePercent": change_pct,
+                    "volume": qp.volume, "marketCap": _safe_float(info.get("marketCap"), 0.0),
+                    "sector": info.get("sector"), "industry": info.get("industry"),
+                }
+                return normalise_quote(raw, sym)
+            except Exception as e:
+                logger.warning(f"Failed to load stock {sym} for search: {e}")
+                return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(fetch_quote_detailed, sym) for sym in symbols]
+            for future in concurrent.futures.as_completed(futures):
+                res = future.result()
+                if res:
+                    results.append(res)
+
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
+
+
+@router.get("")
+async def get_all_stocks(page: int = 1, limit: int = 10):
+    symbols = [
+        "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "JPM", "V", "WMT", "JNJ", "PG", "MA",
+        "HD", "CVX", "MRK", "ABBV", "PEP", "AVGO", "KO", "PFE", "TMO", "COST", "CSCO", "MCD", "DIS",
+        "CRM", "DHR", "NFLX", "AMD", "ADBE", "ABT", "TXN", "PM", "VZ", "NEE", "INTC", "LIN", "AMGN",
+        "HON", "IBM", "UNP", "QCOM", "BA", "SBUX", "GS", "INTU", "LOW", "CAT", "SPGI", "BLK", "DE",
+        "MDT", "AXP", "GE", "ISRG", "NOW", "PLD", "SYK", "T", "CB", "MDLZ", "TJX", "ZTS", "C", "BKNG",
+        "AMT", "PGR", "LMT", "BSX", "MMC", "GILD", "ADP", "SCHW", "CI", "MU", "ELV", "REGN", "ADI",
+        "SO", "KLAC", "DUK", "VRTX", "SNPS", "BDX", "AON", "CME", "CDNS", "ETN", "WM", "NOC", "CSX",
+        "MO", "ITW", "SHW", "ATVI", "EOG", "APD", "MCO", "EW", "MCK"
+    ]
+
+    total = len(symbols)
+    pages = (total + limit - 1) // limit
+    start = (page - 1) * limit
+    end = start + limit
+    paginated_symbols = symbols[start:end]
+
+    results = []
+
+    def fetch_quote(sym):
+        try:
+            qp = _build_quote_parts(sym)
+            change = qp.price - qp.prev_close
+            change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
+            raw = {
+                "symbol": sym, "name": sym,
+                "price": qp.price, "change": change, "changePercent": change_pct,
+                "volume": qp.volume, "marketCap": 0, "sector": None, "industry": None,
+            }
+            return normalise_quote(raw, sym)
+        except Exception as e:
+            logger.warning(f"Failed to load stock {sym}: {e}")
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_quote, sym) for sym in paginated_symbols]
+        for future in concurrent.futures.as_completed(futures):
+            res = future.result()
+            if res:
+                results.append(res)
+
+    results_map = {r["symbol"]: r for r in results}
+    ordered_results = [results_map[sym] for sym in paginated_symbols if sym in results_map]
+
+    return {"data": ordered_results, "total": total, "page": page, "pages": pages}
+
+
 @router.get("/{symbol}/quote")
 async def get_stock_quote(symbol: str = Depends(sanitise_symbol_param)):
     cache_key = make_key("quote", symbol)
@@ -537,109 +640,6 @@ async def get_stock_info(symbol: str = Depends(sanitise_symbol_param)):
         "website": summary.get("website"),
     }
     return normalise_stock_detail(raw, symbol)
-
-
-@router.get("")
-async def get_all_stocks(page: int = 1, limit: int = 10):
-    symbols = [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "JPM", "V", "WMT", "JNJ", "PG", "MA",
-        "HD", "CVX", "MRK", "ABBV", "PEP", "AVGO", "KO", "PFE", "TMO", "COST", "CSCO", "MCD", "DIS",
-        "CRM", "DHR", "NFLX", "AMD", "ADBE", "ABT", "TXN", "PM", "VZ", "NEE", "INTC", "LIN", "AMGN",
-        "HON", "IBM", "UNP", "QCOM", "BA", "SBUX", "GS", "INTU", "LOW", "CAT", "SPGI", "BLK", "DE",
-        "MDT", "AXP", "GE", "ISRG", "NOW", "PLD", "SYK", "T", "CB", "MDLZ", "TJX", "ZTS", "C", "BKNG",
-        "AMT", "PGR", "LMT", "BSX", "MMC", "GILD", "ADP", "SCHW", "CI", "MU", "ELV", "REGN", "ADI",
-        "SO", "KLAC", "DUK", "VRTX", "SNPS", "BDX", "AON", "CME", "CDNS", "ETN", "WM", "NOC", "CSX",
-        "MO", "ITW", "SHW", "ATVI", "EOG", "APD", "MCO", "EW", "MCK"
-    ]
-
-    total = len(symbols)
-    pages = (total + limit - 1) // limit
-    start = (page - 1) * limit
-    end = start + limit
-    paginated_symbols = symbols[start:end]
-
-    results = []
-
-    def fetch_quote(sym):
-        try:
-            qp = _build_quote_parts(sym)
-            change = qp.price - qp.prev_close
-            change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
-            raw = {
-                "symbol": sym, "name": sym,
-                "price": qp.price, "change": change, "changePercent": change_pct,
-                "volume": qp.volume, "marketCap": 0, "sector": None, "industry": None,
-            }
-            return normalise_quote(raw, sym)
-        except Exception as e:
-            logger.warning(f"Failed to load stock {sym}: {e}")
-            return None
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(fetch_quote, sym) for sym in paginated_symbols]
-        for future in concurrent.futures.as_completed(futures):
-            res = future.result()
-            if res:
-                results.append(res)
-
-    results_map = {r["symbol"]: r for r in results}
-    ordered_results = [results_map[sym] for sym in paginated_symbols if sym in results_map]
-
-    return {"data": ordered_results, "total": total, "page": page, "pages": pages}
-
-
-@router.get("/search/detailed")
-async def search_stocks_detailed(q: str):
-    q = (q or "").strip()
-    if not q:
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
-
-    if not hasattr(yf, "Search"):
-        return []
-
-    try:
-        s = yf.Search(q)
-        quotes = getattr(s, "quotes", None) or []
-        symbols = []
-        for item in quotes:
-            sym = (item.get("symbol") or "").upper()
-            quote_type = item.get("quoteType", "")
-            if sym and quote_type in ["EQUITY", "ETF"]:
-                symbols.append(sym)
-                if len(symbols) >= 10:
-                    break
-
-        results = []
-
-        def fetch_quote_detailed(sym):
-            try:
-                t = _ticker(sym)
-                info = _get_info_best_effort(t)
-                qp = _build_quote_parts(sym)
-                change = qp.price - qp.prev_close
-                change_pct = (change / qp.prev_close * 100) if qp.prev_close else 0
-                raw = {
-                    "symbol": sym,
-                    "name": info.get("shortName") or info.get("longName") or sym,
-                    "price": qp.price, "change": change, "changePercent": change_pct,
-                    "volume": qp.volume, "marketCap": _safe_float(info.get("marketCap"), 0.0),
-                    "sector": info.get("sector"), "industry": info.get("industry"),
-                }
-                return normalise_quote(raw, sym)
-            except Exception as e:
-                logger.warning(f"Failed to load stock {sym} for search: {e}")
-                return None
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(fetch_quote_detailed, sym) for sym in symbols]
-            for future in concurrent.futures.as_completed(futures):
-                res = future.result()
-                if res:
-                    results.append(res)
-
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
 
 
 @router.get("/{symbol}/historical")
